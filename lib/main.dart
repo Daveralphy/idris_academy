@@ -12,6 +12,10 @@ import 'package:idris_academy/profile_page.dart';
 import 'package:idris_academy/services/connectivity_service.dart';
 import 'package:idris_academy/services/user_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:convert';
+import 'package:idris_academy/models/submodule_model.dart';
+import 'package:idris_academy/models/module_model.dart';
+import 'package:idris_academy/models/course_model.dart';
 import 'package:idris_academy/services/theme_service.dart';
 import 'package:provider/provider.dart';
 
@@ -64,7 +68,11 @@ class AuthWrapper extends StatelessWidget {
     return Consumer<UserService>(
       builder: (context, userService, child) {
         if (userService.isLoggedIn) {
-          return const MyHomePage();
+          // Role-based routing: Direct users to the correct home page.
+          if (userService.isTeacher) {
+            return const TeacherHomePage();
+          }
+          return const MyHomePage(); // Default to the student home page.
         }
         return const LoginPage();
       },
@@ -294,6 +302,24 @@ class _MyHomePageState extends State<MyHomePage> {
                 }
               },
             ),
+            Consumer<UserService>(
+              builder: (context, userService, child) {
+                if (userService.isTeacher) {
+                  return ListTile(
+                    leading: Icon(Icons.edit_note, color: colorScheme.primary),
+                    title: const Text('Manage Courses'),
+                    onTap: () {
+                      Navigator.pop(context); // Close drawer
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const TeacherHomePage()),
+                      );
+                    },
+                  );
+                }
+                return const SizedBox.shrink(); // Return empty widget if not a teacher
+              },
+            ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.logout),
@@ -309,35 +335,710 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       ),
       body: _pageOptions.elementAt(_selectedIndex),
+      // Switched to NavigationBar for Material 3 styling and indicator support.
       bottomNavigationBar: Container(
         decoration: appGradientDecoration,
-        child: BottomNavigationBar(
-          backgroundColor: Colors.transparent, // Make it transparent to show the container's gradient
-          elevation: 0, // Remove the default shadow
-          items: const <BottomNavigationBarItem>[
-            BottomNavigationBarItem(
-              icon: Icon(Icons.space_dashboard_outlined),
+        child: NavigationBar(
+          onDestinationSelected: _onItemTapped,
+          selectedIndex: _selectedIndex,
+          backgroundColor: Colors.transparent,
+          // This creates the "curved edge square" effect on the selected item.
+          // ignore: deprecated_member_use
+          indicatorColor: colorScheme.onPrimary.withOpacity(0.2),
+          indicatorShape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          height: 70,
+          // ignore: deprecated_member_use
+          labelTextStyle: MaterialStateProperty.resolveWith((states) {
+            // Use a more opaque color for unselected labels to improve visibility.
+            // ignore: deprecated_member_use
+            final color = states.contains(MaterialState.selected)
+                ? colorScheme.onPrimary
+                // ignore: deprecated_member_use
+                : colorScheme.onPrimary.withOpacity(0.9);
+            return TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w500);
+          }),
+          destinations: <Widget>[
+            NavigationDestination(
+              // Increased opacity for better visibility on the gradient background.
+              // ignore: deprecated_member_use
+              icon: Icon(Icons.space_dashboard_outlined, color: colorScheme.onPrimary.withOpacity(0.9)),
+              selectedIcon: Icon(Icons.space_dashboard, color: colorScheme.onPrimary),
               label: 'Dashboard',
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.school_outlined),
+            NavigationDestination(
+              // ignore: deprecated_member_use
+              icon: Icon(Icons.school_outlined, color: colorScheme.onPrimary.withOpacity(0.9)),
+              selectedIcon: Icon(Icons.school, color: colorScheme.onPrimary),
               label: 'Courses',
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.notifications_none_outlined),
+            NavigationDestination(
+              // ignore: deprecated_member_use
+              icon: Icon(Icons.notifications_none_outlined, color: colorScheme.onPrimary.withOpacity(0.9)),
+              selectedIcon: Icon(Icons.notifications, color: colorScheme.onPrimary),
               label: 'Notifications',
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.inbox_outlined),
+            NavigationDestination(
+              // ignore: deprecated_member_use
+              icon: Icon(Icons.inbox_outlined, color: colorScheme.onPrimary.withOpacity(0.9)),
+              selectedIcon: Icon(Icons.inbox, color: colorScheme.onPrimary),
               label: 'Support',
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
+            NavigationDestination(
+              // ignore: deprecated_member_use
+              icon: Icon(Icons.person_outline, color: colorScheme.onPrimary.withOpacity(0.9)),
+              selectedIcon: Icon(Icons.person, color: colorScheme.onPrimary),
               label: 'Profile',
             ),
           ],
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
+        ),
+      ),
+    );
+  }
+}
+
+// ------------------- TEACHER SECTION -------------------
+// NOTE: It's recommended to move the following widgets into their own separate files
+// for better project organization (e.g., teacher_home_page.dart, manage_courses_page.dart).
+
+/// The main page for logged-in teachers, providing access to teacher-specific tools.
+class TeacherHomePage extends StatefulWidget {
+  const TeacherHomePage({super.key});
+
+  @override
+  State<TeacherHomePage> createState() => _TeacherHomePageState();
+}
+
+class _TeacherHomePageState extends State<TeacherHomePage> {
+  int _selectedIndex = 0;
+
+  static final List<Widget> _teacherPages = <Widget>[
+    const TeacherDashboardPage(),
+    const ManageCoursesPage(),
+  ];
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Teacher Portal'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              // Logout the user and return to the login page
+              Provider.of<UserService>(context, listen: false).logout();
+            },
+            tooltip: 'Sign Out',
+          ),
+        ],
+      ),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _teacherPages,
+      ),
+      bottomNavigationBar: NavigationBar(
+        onDestinationSelected: _onItemTapped,
+        selectedIndex: _selectedIndex,
+        // This creates the "curved edge square" effect on the selected item.
+        // ignore: deprecated_member_use
+        indicatorColor: Theme.of(context).colorScheme.primary.withOpacity(0.15),
+        indicatorShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        destinations: const <Widget>[
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_customize_outlined),
+            label: 'Dashboard',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.library_books_outlined),
+            label: 'Courses',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A placeholder dashboard page for teachers.
+class TeacherDashboardPage extends StatelessWidget {
+  const TeacherDashboardPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.school, size: 80),
+            SizedBox(height: 16),
+            Text(
+              'Welcome, Teacher!',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Use the navigation below to manage your courses.',
+              style: TextStyle(fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Page for teachers to manage their courses, modules, and submodules.
+class ManageCoursesPage extends StatefulWidget {
+  const ManageCoursesPage({super.key});
+
+  @override
+  State<ManageCoursesPage> createState() => _ManageCoursesPageState();
+}
+
+class _ManageCoursesPageState extends State<ManageCoursesPage> {
+  void _addCourse() async {
+    // Navigate to the AddCoursePage. The Consumer will handle UI updates
+    // automatically when a new course is added to the UserService.
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(builder: (context) => const AddCoursePage()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      // Use a Consumer to listen for changes in the course catalog.
+      body: Consumer<UserService>(
+        builder: (context, userService, child) {
+          final courses = userService.getCourseCatalog();
+          return ListView.builder(
+            itemCount: courses.length,
+            itemBuilder: (context, index) {
+              final course = courses[index];
+              return ListTile(
+                leading: const Icon(Icons.book_outlined),
+                title: Text(course.title),
+                subtitle: Text('${course.modules.length} modules'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  // Navigate to the editor page for the selected course.
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => CourseEditorPage(courseId: course.id)),
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _addCourse,
+        tooltip: 'Add Course',
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+/// A page for a teacher to edit a course and manage its modules.
+class CourseEditorPage extends StatefulWidget {
+  final String courseId;
+
+  const CourseEditorPage({super.key, required this.courseId});
+
+  @override
+  State<CourseEditorPage> createState() => _CourseEditorPageState();
+}
+
+class _CourseEditorPageState extends State<CourseEditorPage> {
+  void _showAddModuleDialog() {
+    final titleController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Add New Module'),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: titleController,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Module Title',
+                hintText: 'e.g., Chapter 1: Introduction',
+              ),
+              validator: (value) =>
+                  value == null || value.isEmpty ? 'Please enter a title.' : null,
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  final newModule = ModuleModel(
+                    id: 'mod_${DateTime.now().millisecondsSinceEpoch}',
+                    title: titleController.text,
+                    submodules: [], // New modules start with no submodules
+                  );
+                  // Use Provider to call the service method without listening
+                  Provider.of<UserService>(context, listen: false)
+                      .addModuleToCourse(widget.courseId, newModule);
+                  Navigator.pop(dialogContext);
+                }
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Use a Consumer to get the latest course data from the service.
+    return Consumer<UserService>(
+      builder: (context, userService, child) {
+        final course = userService.getCourseFromCatalog(widget.courseId);
+
+        // Handle case where course might not be found (e.g., deleted).
+        if (course == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Error')),
+            body: const Center(child: Text('Course not found.')),
+          );
+        }
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text('Edit: ${course.title}'),
+          ),
+          body: ListView(
+            padding: const EdgeInsets.all(16.0),
+            children: [
+              Text('Course Title: ${course.title}', style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 8),
+              Text(course.description),
+              const Divider(height: 32),
+              Text('Modules', style: Theme.of(context).textTheme.headlineSmall),
+              if (course.modules.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16.0),
+                  child: Center(child: Text('No modules yet. Add one!')),
+                ),
+              ...course.modules.map((module) => ListTile(
+                    title: Text(module.title),
+                    subtitle: Text('${module.submodules.length} submodules'),
+                    trailing: const Icon(Icons.edit_outlined),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => ModuleEditorPage(courseId: course.id, moduleId: module.id)),
+                      );
+                    },
+                  )),
+            ],
+          ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () {
+              _showAddModuleDialog();
+            },
+            tooltip: 'Add Module',
+            child: const Icon(Icons.add),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// A page for a teacher to edit a module and manage its submodules.
+class ModuleEditorPage extends StatelessWidget {
+  final String courseId;
+  final String moduleId;
+
+  const ModuleEditorPage({
+    super.key,
+    required this.courseId,
+    required this.moduleId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<UserService>(
+      builder: (context, userService, child) {
+        final module = userService.getModuleFromCourse(courseId, moduleId);
+
+        if (module == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Error')),
+            body: const Center(child: Text('Module not found.')),
+          );
+        }
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text('Edit: ${module.title}'),
+          ),
+          body: ListView(
+            padding: const EdgeInsets.all(16.0),
+            children: [
+              Text('Submodules', style: Theme.of(context).textTheme.headlineSmall),
+              if (module.submodules.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16.0),
+                  child: Center(child: Text('No submodules yet. Add one!')),
+                ),
+              ...module.submodules.map((submodule) => ListTile(
+                    leading: const Icon(Icons.article_outlined),
+                    title: Text(submodule.title),
+                    trailing: const Icon(Icons.edit_outlined),
+                    onTap: () {
+                      // Navigate to edit the existing submodule.
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SubmoduleEditorPage(
+                              courseId: courseId, moduleId: moduleId, submoduleId: submodule.id),
+                        ),
+                      );
+                    },
+                  )),
+            ],
+          ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () {
+              // Navigate to add a new submodule.
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      SubmoduleEditorPage(courseId: courseId, moduleId: moduleId),
+                ),
+              );
+            },
+            tooltip: 'Add Submodule',
+            child: const Icon(Icons.add),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// A page for a teacher to add or edit a submodule.
+class SubmoduleEditorPage extends StatefulWidget {
+  final String courseId;
+  final String moduleId;
+  final String? submoduleId; // Null when adding a new submodule
+
+  const SubmoduleEditorPage({
+    super.key,
+    required this.courseId,
+    required this.moduleId,
+    this.submoduleId,
+  });
+
+  @override
+  State<SubmoduleEditorPage> createState() => _SubmoduleEditorPageState();
+}
+
+class _SubmoduleEditorPageState extends State<SubmoduleEditorPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _transcriptController = TextEditingController();
+  bool _isSaving = false;
+  bool _isLoading = true;
+  SubmoduleModel? _existingSubmodule;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.submoduleId != null) {
+      // Editing an existing submodule
+      _loadExistingSubmodule();
+    } else {
+      // Adding a new submodule
+      setState(() => _isLoading = false);
+    }
+  }
+
+  /// Converts a Quill Delta JSON string to plain text for backward compatibility.
+  String _plainTextFromDelta(String jsonString) {
+    // If it's not a JSON array, assume it's already plain text.
+    if (jsonString.isEmpty || !jsonString.startsWith('[')) {
+      return jsonString;
+    }
+    try {
+      final List<dynamic> delta = jsonDecode(jsonString);
+      final buffer = StringBuffer();
+      for (var op in delta) {
+        if (op is Map<String, dynamic> && op.containsKey('insert')) {
+          final insertData = op['insert'];
+          if (insertData is String) {
+            buffer.write(insertData);
+          }
+        }
+      }
+      return buffer.toString();
+    } catch (e) {
+      // If decoding fails for any reason, return the original string.
+      return jsonString;
+    }
+  }
+
+  void _loadExistingSubmodule() {
+    final userService = Provider.of<UserService>(context, listen: false);
+    _existingSubmodule =
+        userService.getSubmodule(widget.courseId, widget.moduleId, widget.submoduleId!);
+    if (_existingSubmodule != null) {
+      _titleController.text = _existingSubmodule!.title;
+      final transcript = _existingSubmodule!.transcript;
+      // Convert potential Quill Delta to plain text for editing.
+      _transcriptController.text = _plainTextFromDelta(transcript);
+    }
+    setState(() => _isLoading = false);
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _transcriptController.dispose();
+    super.dispose();
+  }
+
+  void _saveSubmodule() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isSaving = true;
+      });
+
+      final userService = Provider.of<UserService>(context, listen: false);
+      // Get the plain text content from the new controller.
+      final transcriptContent = _transcriptController.text;
+
+      if (_existingSubmodule != null) {
+        // Update existing submodule
+        final updatedSubmodule = _existingSubmodule!.copyWith(
+          title: _titleController.text,
+          transcript: transcriptContent,
+        );
+        await userService.updateSubmodule(
+            widget.courseId, widget.moduleId, updatedSubmodule);
+      } else {
+        // Creating a new submodule
+        final newSubmodule = SubmoduleModel(
+          id: 'sub_${DateTime.now().millisecondsSinceEpoch}',
+          title: _titleController.text,
+          transcript: transcriptContent,
+          contentType: ContentType.text, // Defaulting to text content
+          contentUrl: '',
+        );
+        await userService.addSubmoduleToModule(
+            widget.courseId, widget.moduleId, newSubmodule);
+      }
+
+      if (mounted) { // Check if the widget is still in the tree
+        Navigator.pop(context);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isEditing = _existingSubmodule != null;
+
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: Text(isEditing ? 'Edit Submodule' : 'Add Submodule')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(isEditing ? 'Edit Submodule' : 'Add Submodule'),
+        actions: [
+          IconButton(
+            icon: _isSaving
+                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.0))
+                : const Icon(Icons.save_alt_outlined),
+            onPressed: _isSaving ? null : _saveSubmodule,
+            tooltip: 'Save Submodule',
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextFormField(
+                  controller: _titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Submodule Title',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) => value == null || value.isEmpty ? 'Please enter a title.' : null,
+                ),
+                const SizedBox(height: 16),
+                // Replace the Quill editor with a standard multiline text field.
+                Expanded(
+                  child: TextFormField(
+                    controller: _transcriptController,
+                    decoration: const InputDecoration(
+                      labelText: 'Content / Transcript',
+                      hintText: 'Enter the submodule content here.',
+                      border: OutlineInputBorder(),
+                      alignLabelWithHint: true, // Good for multiline fields
+                    ),
+                    maxLines: null, // Allows for an unlimited number of lines
+                    expands: true, // Makes the field expand to fill the space
+                    textAlignVertical: TextAlignVertical.top,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A page for teachers to add a new course with its basic details.
+class AddCoursePage extends StatefulWidget {
+  const AddCoursePage({super.key});
+
+  @override
+  State<AddCoursePage> createState() => _AddCoursePageState();
+}
+
+class _AddCoursePageState extends State<AddCoursePage> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _tagsController = TextEditingController();
+  bool _isSaving = false;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _tagsController.dispose();
+    super.dispose();
+  }
+
+  void _saveCourse() async {
+    // Validate the form before proceeding.
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isSaving = true;
+      });
+
+      final userService = Provider.of<UserService>(context, listen: false);
+
+      // Create a new CourseModel object.
+      final newCourse = CourseModel(
+        id: 'course_${DateTime.now().millisecondsSinceEpoch}', // Unique ID
+        title: _titleController.text,
+        description: _descriptionController.text,
+        tags: _tagsController.text.split(',').map((e) => e.trim()).where((s) => s.isNotEmpty).toList(),
+        // New courses start with an empty list of modules.
+        modules: [],
+        // Provide a placeholder thumbnail.
+        thumbnailUrl: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?q=80&w=2070&auto=format&fit=crop',
+      );
+
+      // Call the service to add the course.
+      await userService.addCourse(newCourse);
+
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Add New Course'),
+        actions: [
+          IconButton(
+            // Show a progress indicator while saving.
+            icon: _isSaving
+                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.0))
+                : const Icon(Icons.save_alt_outlined),
+            onPressed: _isSaving ? null : _saveCourse,
+            tooltip: 'Save Course',
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextFormField(
+                controller: _titleController,
+                decoration: const InputDecoration(
+                  labelText: 'Course Title',
+                  border: OutlineInputBorder(),
+                  hintText: 'e.g., Introduction to Flutter',
+                ),
+                validator: (value) => value == null || value.isEmpty ? 'Please enter a course title.' : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(
+                  labelText: 'Course Description',
+                  border: OutlineInputBorder(),
+                  hintText: 'A brief summary of what the course covers.',
+                ),
+                maxLines: 4,
+                validator: (value) => value == null || value.isEmpty ? 'Please enter a description.' : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _tagsController,
+                decoration: const InputDecoration(
+                  labelText: 'Tags (comma-separated)',
+                  border: OutlineInputBorder(),
+                  hintText: 'e.g., Flutter, Beginner, Mobile Dev',
+                ),
+                validator: (value) => value == null || value.isEmpty ? 'Please enter at least one tag.' : null,
+              ),
+            ],
+          ),
         ),
       ),
     );

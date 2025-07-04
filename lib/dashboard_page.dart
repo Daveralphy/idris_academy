@@ -201,14 +201,28 @@ class _DashboardPageState extends State<DashboardPage> {
               height: 80,
               width: double.infinity,
               fit: BoxFit.cover,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  height: 80,
+                  color: colorScheme.surface,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      value: loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded /
+                              loadingProgress.expectedTotalBytes!
+                          : null,
+                    ),
+                  ),
+                );
+              },
               errorBuilder: (context, error, stackTrace) => Container(
                 height: 80,
                 color: colorScheme.surface,
                 // ignore: deprecated_member_use
-                child: Center(child: Icon(Icons.school_outlined, size: 32, color: colorScheme.onSurface.withOpacity(0.5)))
-              ),
+                child: Center(child: Icon(Icons.school_outlined, size: 32, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)))),
             ),
-            const SizedBox(height: 18), // Add spacing between image and text
+            const SizedBox(height: 12), // Reduced spacing to prevent overflow
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(10, 4, 10, 4),

@@ -18,7 +18,7 @@ class SubmoduleModel {
   });
 
   // Method to create a copy, useful for updating user-specific progress
-  SubmoduleModel copyWith({bool? isCompleted}) {
+  SubmoduleModel copyWith({bool? isCompleted, required String title, required String transcript}) {
     return SubmoduleModel(
       id: id,
       title: title,

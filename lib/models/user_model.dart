@@ -6,6 +6,7 @@ class UserModel {
   final DateTime? dob;
   String? phoneNumber;
   String? profilePicturePath;
+  final String role;
 
   UserModel({
     required this.id,
@@ -15,5 +16,6 @@ class UserModel {
     this.dob,
     this.phoneNumber,
     this.profilePicturePath,
+    this.role = 'student', // Default new users to the 'student' role
   });
 }
