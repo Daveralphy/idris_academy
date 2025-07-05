@@ -12,7 +12,7 @@ class ModuleModel {
   });
 
   // Method to create a copy, useful for updating user-specific progress
-  ModuleModel copyWith({List<SubmoduleModel>? submodules}) {
+  ModuleModel copyWith({List<SubmoduleModel>? submodules, required String title}) {
     return ModuleModel(id: id, title: title, submodules: submodules ?? this.submodules);
   }
 }

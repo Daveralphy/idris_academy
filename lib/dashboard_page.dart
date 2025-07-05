@@ -52,7 +52,7 @@ class _DashboardPageState extends State<DashboardPage> {
             _buildQuickAccessGrid(context, widget.onNavigateToTab),
             const SizedBox(height: 24),
 
-            _buildInProgressCourses(context, textTheme, colorScheme, userService),
+            _buildInProgressCourses(context, userService),
             const SizedBox(height: 24),
 
             _buildProgressSnapshot(context, userService),
@@ -154,7 +154,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildInProgressCourses(BuildContext context, TextTheme textTheme, ColorScheme colorScheme, UserService userService) {
+  Widget _buildInProgressCourses(BuildContext context, UserService userService) {
     final courses = userService.getInProgressCourses();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -187,6 +187,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildCourseCard(BuildContext context, {required CourseModel course}) {
+    // ignore: unused_local_variable
     final colorScheme = Theme.of(context).colorScheme;
     return Card(
       margin: const EdgeInsets.only(right: 14),
@@ -196,32 +197,7 @@ class _DashboardPageState extends State<DashboardPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Image.network(
-              course.thumbnailUrl,
-              height: 80,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return Container(
-                  height: 80,
-                  color: colorScheme.surface,
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      value: loadingProgress.expectedTotalBytes != null
-                          ? loadingProgress.cumulativeBytesLoaded /
-                              loadingProgress.expectedTotalBytes!
-                          : null,
-                    ),
-                  ),
-                );
-              },
-              errorBuilder: (context, error, stackTrace) => Container(
-                height: 80,
-                color: colorScheme.surface,
-                // ignore: deprecated_member_use
-                child: Center(child: Icon(Icons.school_outlined, size: 32, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)))),
-            ),
+            _buildCourseThumbnail(context, thumbnailUrl: course.thumbnailUrl),
             const SizedBox(height: 12), // Reduced spacing to prevent overflow
             Expanded(
               child: Padding(
@@ -284,6 +260,54 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
       ),
     );
+  }
+
+  /// A helper widget to display a course thumbnail from either a network URL or a local file path.
+  Widget _buildCourseThumbnail(BuildContext context, {required String thumbnailUrl}) {
+    final colorScheme = Theme.of(context).colorScheme;
+    const double imageHeight = 80;
+
+    // Default error widget to show when an image fails to load.
+    final errorWidget = Container(
+      height: imageHeight,
+      color: colorScheme.surface,
+      // ignore: deprecated_member_use
+      child: Center(child: Icon(Icons.school_outlined, size: 32, color: colorScheme.onSurface.withOpacity(0.5))),
+    );
+
+    // Check if the URL is a network URL or a local file path.
+    if (thumbnailUrl.startsWith('http')) {
+      return Image.network(
+        thumbnailUrl,
+        height: imageHeight,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            height: imageHeight,
+            color: colorScheme.surface,
+            child: Center(
+              child: CircularProgressIndicator(
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                    : null,
+              ),
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) => errorWidget,
+      );
+    } else {
+      // It's a local file path.
+      return Image.file(
+        File(thumbnailUrl),
+        height: imageHeight,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => errorWidget,
+      );
+    }
   }
 
   Widget _buildQuickAccessGrid(BuildContext context, Function(int) onNavigateToTab) {

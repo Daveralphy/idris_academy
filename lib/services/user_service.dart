@@ -34,6 +34,13 @@ class UserService extends ChangeNotifier {
     'uid_teacher': 'teacherpass', // Teacher user for demonstration
   };
 
+  // Mock list of teachers for the dropdown.
+  final List<UserModel> _mockTeachers = [
+    UserModel(id: 'uid_teacher', name: 'Dr. Idris', username: 'teacher', email: 'teacher@example.com', role: 'teacher'),
+    UserModel(id: 'uid_teacher_2', name: 'Prof. Ada', username: 'prof_ada', email: 'ada@example.com', role: 'teacher'),
+    UserModel(id: 'uid_teacher_3', name: 'Mr. Ben', username: 'mr_ben', email: 'ben@example.com', role: 'teacher'),
+  ];
+
   // This map acts as our in-memory mock database.
   // The key is the user ID.
   final Map<String, UserData> _mockDatabase = {
@@ -46,7 +53,8 @@ class UserService extends ChangeNotifier {
             thumbnailUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=2070&auto=format&fit=crop',
             tags: ['Flutter', 'Advanced'],
             progress: 0.65,
-            lastAccessed: 'Lesson 5: Slivers'),
+            lastAccessed: 'Lesson 5: Slivers',
+            teacherName: 'Dr. Idris'),
         CourseModel(
             id: 'c2',
             title: 'State Management with Provider',
@@ -54,7 +62,8 @@ class UserService extends ChangeNotifier {
             thumbnailUrl: 'https://images.unsplash.com/photo-1628258334105-2a0b3d6ef5f3?q=80&w=1974&auto=format&fit=crop',
             tags: ['Flutter', 'State Management'],
             progress: 0.30,
-            lastAccessed: 'Lesson 2: ChangeNotifier'),
+            lastAccessed: 'Lesson 2: ChangeNotifier',
+            teacherName: 'Prof. Ada'),
       ],
       recommendedCourses: [
         CourseModel(
@@ -62,13 +71,15 @@ class UserService extends ChangeNotifier {
             title: 'Mastering Newtonian Physics',
             description: 'From kinematics to dynamics, understand the fundamentals of classical mechanics.',
             thumbnailUrl: 'https://www.shutterstock.com/image-vector/physics-chalkboard-background-hand-drawn-260nw-1988419205.jpg',
-            tags: ['Physics', 'Advanced']),
+            tags: ['Physics', 'Advanced'],
+            teacherName: 'Mr. Ben'),
         CourseModel(
             id: 'cat4',
             title: 'Calculus for Further Maths',
             description: 'A deep dive into differentiation and integration for advanced problem-solving.',
             thumbnailUrl: 'https://images.unsplash.com/photo-1509228468518-180dd4864904?q=80&w=2070&auto=format&fit=crop',
-            tags: ['Further Maths', 'Mathematics', 'Calculus']),
+            tags: ['Further Maths', 'Mathematics', 'Calculus'],
+            teacherName: 'Prof. Ada'),
       ],
       achievements: {'Courses Done': '5', 'Badges Earned': '12', 'Time Spent': '72h'},
       notificationCount: 3,
@@ -125,7 +136,7 @@ class UserService extends ChangeNotifier {
     if ((emailOrUsername.toLowerCase() == 'testuser' ||
             emailOrUsername.toLowerCase() == 'testuser@gmail.com') && _mockUserPasswords['uid_12345'] == password) {
       _currentUser = UserModel(
-        id: 'uid_12345',
+        id: 'uid_12345', 
         name: 'Raphael (Student)',
         username: 'testuser',
         email: 'testuser@gmail.com',
@@ -154,7 +165,7 @@ class UserService extends ChangeNotifier {
     if (emailOrUsername.toLowerCase() == 'teacher@example.com' && _mockUserPasswords['uid_teacher'] == password) {
       _currentUser = UserModel(
         id: 'uid_teacher',
-        name: 'Dr. Idris (Teacher)',
+        name: 'Dr. Idris',
         username: 'teacher',
         email: 'teacher@example.com',
         role: 'teacher',
@@ -367,6 +378,9 @@ class UserService extends ChangeNotifier {
     }
   }
 
+  /// Returns the list of available teachers.
+  List<UserModel> getTeachers() => _mockTeachers;
+
   // --- Course Management (Teacher) ---
 
   // This list acts as our master course catalog for the entire app.
@@ -377,6 +391,7 @@ class UserService extends ChangeNotifier {
       description: 'A comprehensive course covering the entire secondary school chemistry syllabus.',
       thumbnailUrl: 'https://media.istockphoto.com/id/469951129/photo/group-of-multi-ethnic-students-in-chemistry-lab.jpg?s=612x612&w=0&k=20&c=WbKS_5P0HrNGWXTmNifwjh6Dw0mzj_spghkbJYd9xnY=',
       tags: ['Chemistry', 'Secondary School', 'Science'],
+      teacherName: 'Dr. Idris',
       modules: [
         ModuleModel(id: 'mod1_1', title: 'Module 1: Fundamentals of Chemistry', submodules: [
           SubmoduleModel(id: 'sub1_1_1', title: 'Introduction to Chemistry', contentType: ContentType.youtubeVideo, contentUrl: 'https://www.youtube.com/watch?v=FSyA4_30O54', transcript: 'This is the transcript for the introduction to chemistry video.'),
@@ -394,6 +409,7 @@ class UserService extends ChangeNotifier {
       description: 'Ace your JAMB biology exam with our targeted lessons and quizzes.',
       thumbnailUrl: 'https://www.shutterstock.com/image-photo/science-laboratory-microscope-research-medical-260nw-2499118491.jpg',
       tags: ['Biology', 'JAMB', 'Science'],
+      teacherName: 'Prof. Ada',
       modules: [
         ModuleModel(id: 'mod2_1', title: 'Module 1: Cell Biology', submodules: [
           SubmoduleModel(id: 'sub2_1_1', title: 'The Cell: Basic Unit of Life', contentType: ContentType.youtubeVideo, contentUrl: 'https://www.youtube.com/watch?v=8IlzKri08kk', transcript: 'Transcript for cell biology intro.'),
@@ -407,6 +423,7 @@ class UserService extends ChangeNotifier {
       description: 'From kinematics to dynamics, understand the fundamentals of classical mechanics.',
       thumbnailUrl: 'https://www.shutterstock.com/image-vector/physics-chalkboard-background-hand-drawn-260nw-1988419205.jpg',
       tags: ['Physics', 'Advanced', 'Science'],
+      teacherName: 'Mr. Ben',
       modules: [
         ModuleModel(id: 'mod3_1', title: 'Module 1: Kinematics', submodules: [
           SubmoduleModel(id: 'sub3_1_1', title: 'Motion in One Dimension', contentType: ContentType.youtubeVideo, contentUrl: 'https://www.youtube.com/watch?v=ZM8ECpBuQYE', transcript: 'Transcript for kinematics.'),
@@ -419,6 +436,7 @@ class UserService extends ChangeNotifier {
       description: 'A deep dive into differentiation and integration for advanced problem-solving.',
       thumbnailUrl: 'https://images.unsplash.com/photo-1509228468518-180dd4864904?q=80&w=2070&auto=format&fit=crop',
       tags: ['Further Maths', 'Mathematics', 'Calculus', 'Advanced'],
+      teacherName: 'Prof. Ada',
       modules: [
         ModuleModel(id: 'mod4_1', title: 'Module 1: Differentiation', submodules: [
           SubmoduleModel(id: 'sub4_1_1', title: 'Basic Differentiation Rules', contentType: ContentType.youtubeVideo, contentUrl: 'https://www.youtube.com/watch?v=5yfh5cf4-0w', transcript: 'Transcript for differentiation.'),
@@ -457,14 +475,99 @@ class UserService extends ChangeNotifier {
     notifyListeners(); // Notify listeners that the course list has changed.
   }
 
+  /// Updates the details of an existing course in the master catalog.
+  Future<void> updateCourseDetails(CourseModel updatedCourse) async {
+    await Future.delayed(const Duration(milliseconds: 500)); // Simulate network save
+    final index = _courseCatalog.indexWhere((c) => c.id == updatedCourse.id);
+    if (index != -1) {
+      _courseCatalog[index] = updatedCourse;
+      notifyListeners();
+    }
+  }
+
+  /// Deletes a course from the master catalog and from all users' data.
+  Future<void> deleteCourse(String courseId) async {
+    await Future.delayed(const Duration(milliseconds: 500)); // Simulate network save
+    // Remove from the main catalog
+    _courseCatalog.removeWhere((c) => c.id == courseId);
+
+    // Also remove from any user's enrolled/recommended courses for data consistency
+    for (var userData in _mockDatabase.values) {
+      userData.inProgressCourses.removeWhere((c) => c.id == courseId);
+    }
+    notifyListeners();
+  }
+
   /// Adds a new module to a specific course in the catalog.
-  Future<void> addModuleToCourse(String courseId, ModuleModel module) async {
+  Future<void> addModuleToCourse(String courseId, String title) async {
     await Future.delayed(const Duration(milliseconds: 300)); // Simulate network save
     final courseIndex = _courseCatalog.indexWhere((c) => c.id == courseId);
     if (courseIndex != -1) {
-      // To ensure we're modifying the list in place, we access it directly.
-      _courseCatalog[courseIndex].modules.add(module);
+      final course = _courseCatalog[courseIndex];
+      final moduleNumber = course.modules.length + 1;
+      final newModule = ModuleModel(
+        id: 'mod_${DateTime.now().millisecondsSinceEpoch}',
+        title: 'Module $moduleNumber: $title', // Automatically prefix the title
+        submodules: [],
+      );
+      course.modules.add(newModule);
       notifyListeners(); // Notify listeners that the course has been updated.
+    }
+  }
+
+  /// Updates the order of modules in a course.
+  Future<void> updateModuleOrder(String courseId, List<ModuleModel> reorderedModules) async {
+    await Future.delayed(const Duration(milliseconds: 300)); // Simulate network save
+    final course = getCourseFromCatalog(courseId);
+    if (course != null) {
+      // We cannot reassign the final 'modules' list.
+      // Instead, we clear the existing list and add the reordered items.
+      course.modules..clear()..addAll(reorderedModules);
+      notifyListeners(); // Notify listeners that the course has been updated.
+    }
+  }
+
+  /// Updates the title of a specific module.
+  Future<void> updateModuleTitle(String courseId, String moduleId, String newTitle) async {
+    await Future.delayed(const Duration(milliseconds: 300)); // Simulate network save
+    final course = getCourseFromCatalog(courseId);
+    if (course != null) {
+      final moduleIndex = course.modules.indexWhere((m) => m.id == moduleId);
+      if (moduleIndex != -1) {
+        // Create a new module with the updated title but same submodules
+        final updatedModule = course.modules[moduleIndex].copyWith(title: newTitle);
+        // Replace the old module with the updated one
+        course.modules[moduleIndex] = updatedModule;
+        notifyListeners();
+      }
+    }
+  }
+
+  /// Updates the title of a specific submodule.
+  Future<void> updateSubmoduleTitle(String courseId, String moduleId, String submoduleId, String newTitle) async {
+    await Future.delayed(const Duration(milliseconds: 300)); // Simulate network save
+    final module = getModuleFromCourse(courseId, moduleId);
+    if (module != null) {
+      final submoduleIndex = module.submodules.indexWhere((s) => s.id == submoduleId);
+      if (submoduleIndex != -1) {
+        final originalSubmodule = module.submodules[submoduleIndex];
+        final updatedSubmodule = originalSubmodule.copyWith(
+          title: newTitle,
+          transcript: originalSubmodule.transcript, // Pass existing transcript as it's required
+        );
+        module.submodules[submoduleIndex] = updatedSubmodule;
+        notifyListeners();
+      }
+    }
+  }
+
+  /// Deletes a module from a course.
+  Future<void> deleteModule(String courseId, String moduleId) async {
+    await Future.delayed(const Duration(milliseconds: 300)); // Simulate network save
+    final course = getCourseFromCatalog(courseId);
+    if (course != null) {
+      course.modules.removeWhere((module) => module.id == moduleId);
+      notifyListeners();
     }
   }
 
@@ -480,15 +583,30 @@ class UserService extends ChangeNotifier {
   }
 
   /// Adds a new submodule to a specific module within a course.
-  Future<void> addSubmoduleToModule(String courseId, String moduleId, SubmoduleModel submodule) async {
+  Future<void> addSubmoduleToModule(String courseId, String moduleId, String title, String transcript, ContentType contentType, String contentUrl) async {
     await Future.delayed(const Duration(milliseconds: 300)); // Simulate network save
-    final course = getCourseFromCatalog(courseId);
-    if (course != null) {
-      final moduleIndex = course.modules.indexWhere((m) => m.id == moduleId);
-      if (moduleIndex != -1) {
-        course.modules[moduleIndex].submodules.add(submodule);
-        notifyListeners();
-      }
+    final module = getModuleFromCourse(courseId, moduleId);
+    if (module != null) {
+      final submoduleNumber = module.submodules.length + 1;
+      final newSubmodule = SubmoduleModel(
+        id: 'sub_${DateTime.now().millisecondsSinceEpoch}',
+        title: 'Lesson $submoduleNumber: $title', // Automatically prefix the title
+        transcript: transcript,
+        contentType: contentType,
+        contentUrl: contentUrl,
+      );
+      module.submodules.add(newSubmodule);
+      notifyListeners();
+    }
+  }
+
+  /// Deletes a submodule from a module.
+  Future<void> deleteSubmodule(String courseId, String moduleId, String submoduleId) async {
+    await Future.delayed(const Duration(milliseconds: 300)); // Simulate network save
+    final module = getModuleFromCourse(courseId, moduleId);
+    if (module != null) {
+      module.submodules.removeWhere((submodule) => submodule.id == submoduleId);
+      notifyListeners();
     }
   }
 
@@ -502,6 +620,18 @@ class UserService extends ChangeNotifier {
         module.submodules[submoduleIndex] = updatedSubmodule;
         notifyListeners();
       }
+    }
+  }
+
+  /// Updates the order of submodules in a module.
+  Future<void> updateSubmoduleOrder(String courseId, String moduleId, List<SubmoduleModel> reorderedSubmodules) async {
+    await Future.delayed(const Duration(milliseconds: 300)); // Simulate network save
+    final module = getModuleFromCourse(courseId, moduleId);
+    if (module != null) {
+      // We cannot reassign the final 'submodules' list.
+      // Instead, we clear the existing list and add the reordered items.
+      module.submodules..clear()..addAll(reorderedSubmodules);
+      notifyListeners(); // Notify listeners that the module has been updated.
     }
   }
 
@@ -537,7 +667,8 @@ class UserService extends ChangeNotifier {
           ? course.modules.first.submodules.first.title
           : 'Not started',
       modules: course.modules.map((module) => module.copyWith(
-        submodules: module.submodules.map((sub) => sub.copyWith(isCompleted: false, title: '', transcript: '')).toList(),
+        title: module.title, // Pass the existing title as it's required
+        submodules: module.submodules.map((sub) => sub.copyWith(isCompleted: false, title: sub.title, transcript: sub.transcript)).toList(),
       )).toList(),
     );
 
@@ -559,10 +690,11 @@ class UserService extends ChangeNotifier {
 
     final updatedModules = course.modules.map((module) {
       return module.copyWith(
+        title: module.title, // Pass the existing title as it's required
         submodules: module.submodules.map((submodule) {
           totalSubmodules++;
           if (submodule.id == submoduleId) {
-            final updatedSubmodule = submodule.copyWith(isCompleted: completed, title: '', transcript: '');
+            final updatedSubmodule = submodule.copyWith(isCompleted: completed, title: submodule.title, transcript: submodule.transcript);
             if (updatedSubmodule.isCompleted) completedSubmodules++;
             return updatedSubmodule;
           }
