@@ -1,5 +1,8 @@
 // ignore_for_file: deprecated_member_use
 
+import 'dart:convert';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
+import 'package:flutter_quill_extensions/flutter_quill_extensions.dart';
 import 'package:flutter/material.dart';
 import 'package:idris_academy/models/course_model.dart';
 import 'package:idris_academy/models/module_model.dart';
@@ -26,6 +29,9 @@ class _CourseContentPageState extends State<CourseContentPage> with SingleTicker
   SubmoduleModel? _currentSubmodule;
   YoutubePlayerController? _youtubeController;
   VideoPlayerController? _videoPlayerController;
+  quill.QuillController? _quillController;
+  final FocusNode _quillFocusNode = FocusNode();
+  final ScrollController _quillScrollController = ScrollController();
   bool _videoCompleted = false;
 
   // Controllers for the new tabbed interface
@@ -51,37 +57,79 @@ class _CourseContentPageState extends State<CourseContentPage> with SingleTicker
       _youtubeController = null;
       _videoPlayerController?.dispose();
       _videoPlayerController = null;
+      _quillController?.dispose();
+      _quillController = null;
 
       switch (submodule.contentType) {
         case ContentType.youtubeVideo:
-          final videoId = YoutubePlayer.convertUrlToId(submodule.contentUrl);
-          if (videoId != null) {
-            _youtubeController = YoutubePlayerController(
-              initialVideoId: videoId,
-              flags: const YoutubePlayerFlags(autoPlay: false),
-            )..addListener(() {
-                if (_youtubeController!.value.playerState == PlayerState.ended && !_videoCompleted) {
-                  _onVideoCompleted();
-                }
-              });
+          if (submodule.contentUrl.isNotEmpty) {
+            try {
+              final videoId = YoutubePlayer.convertUrlToId(submodule.contentUrl);
+              if (videoId != null) {
+                _youtubeController = YoutubePlayerController(
+                  initialVideoId: videoId,
+                  flags: const YoutubePlayerFlags(autoPlay: false),
+                )..addListener(() {
+                    if (_youtubeController!.value.playerState == PlayerState.ended && !_videoCompleted) {
+                      _onVideoCompleted();
+                    }
+                  });
+              }
+            } catch (e) {
+              debugPrint("Error parsing YouTube URL: ${submodule.contentUrl}. Error: $e");
+              // Controller will remain null, and the UI will show a placeholder.
+            }
           }
           break;
         case ContentType.networkVideo:
-          _videoPlayerController = VideoPlayerController.networkUrl(Uri.parse(submodule.contentUrl))
-            ..initialize().then((_) {
-              setState(() {});
-            })
-            ..addListener(() {
-              if (_videoPlayerController!.value.position >= _videoPlayerController!.value.duration &&
-                  !_videoCompleted &&
-                  _videoPlayerController!.value.isInitialized) {
-                _onVideoCompleted();
-              }
-              if (mounted) setState(() {});
-            });
+          if (submodule.contentUrl.isNotEmpty) {
+            try {
+              final uri = Uri.parse(submodule.contentUrl);
+              _videoPlayerController = VideoPlayerController.networkUrl(uri)
+                ..initialize().then((_) {
+                  if (mounted) setState(() {});
+                })
+                ..addListener(() {
+                  if (_videoPlayerController!.value.position >= _videoPlayerController!.value.duration &&
+                      !_videoCompleted &&
+                      _videoPlayerController!.value.isInitialized) {
+                    _onVideoCompleted();
+                  }
+                  if (mounted) setState(() {});
+                });
+            } catch (e) {
+              debugPrint("Error parsing network video URL: ${submodule.contentUrl}. Error: $e");
+              // Controller will remain null.
+            }
+          }
           break;
         case ContentType.image:
         case ContentType.text:
+          // For text content, initialize the Quill controller.
+          if (submodule.contentType == ContentType.text) {
+            if (submodule.transcript.isNotEmpty) {
+              try {
+                final content = submodule.transcript;
+                quill.Document doc;
+                // Check if content is valid JSON (from Quill editor)
+                if (content.trim().startsWith('[')) {
+                  doc = quill.Document.fromJson(jsonDecode(content));
+                } else {
+                  // Handle legacy plain text.
+                  doc = quill.Document()..insert(0, content);
+                }
+                _quillController = quill.QuillController(
+                  document: doc,
+                  selection: const TextSelection.collapsed(offset: 0),
+                );
+              } catch (e) {
+                debugPrint("Error initializing Quill document: $e");
+                // Create a fallback document showing the error or raw text.
+                final doc = quill.Document()..insert(0, 'Error loading content.');
+                _quillController = quill.QuillController(document: doc, selection: const TextSelection.collapsed(offset: 0));
+              }
+            }
+          }
           break;
       }
     });
@@ -102,7 +150,10 @@ class _CourseContentPageState extends State<CourseContentPage> with SingleTicker
   void dispose() {
     _youtubeController?.dispose();
     _videoPlayerController?.dispose();
+    _quillController?.dispose();
     _tabController?.dispose();
+    _quillFocusNode.dispose();
+    _quillScrollController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -292,7 +343,10 @@ class _CourseContentPageState extends State<CourseContentPage> with SingleTicker
             controller: _youtubeController!,
             showVideoProgressIndicator: true,
           );
+        } else {
+          return _buildContentPlaceholder('This YouTube video could not be loaded.', icon: Icons.videocam_off);
         }
+        // ignore: dead_code
         break;
       case ContentType.networkVideo:
         if (_videoPlayerController != null && _videoPlayerController!.value.isInitialized) {
@@ -323,7 +377,10 @@ class _CourseContentPageState extends State<CourseContentPage> with SingleTicker
               ),
             ),
           );
+        } else {
+          return _buildContentPlaceholder('This video could not be loaded.', icon: Icons.videocam_off);
         }
+        // ignore: dead_code
         break;
       case ContentType.image:
         return Image.network(
@@ -340,6 +397,7 @@ class _CourseContentPageState extends State<CourseContentPage> with SingleTicker
     }
 
     // Default/loading state
+    // ignore: dead_code
     return AspectRatio(
       aspectRatio: 16 / 9,
       child: Container(
@@ -439,16 +497,36 @@ class _CourseContentPageState extends State<CourseContentPage> with SingleTicker
     );
   }
 
-  Widget _buildTranscriptSection(String transcript) {
-    // The Card provides a nice container within the tab.
-    return Card(
-      elevation: 0,
-      color: Theme.of(context).colorScheme.surface,
-      margin: const EdgeInsets.symmetric(vertical: 8.0),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(12.0),
-        child: Text(transcript.isNotEmpty ? transcript : 'No transcript available for this lesson.'),
-      ),
+  Widget _buildTranscriptSection() {
+    // For text lessons, display the rich text editor.
+    if (_currentSubmodule?.contentType == ContentType.text && _quillController != null) {
+      // To definitively solve the parameter issues, we wrap the editor in an
+      // IgnorePointer. This blocks all user interaction, effectively making
+      // the editor a read-only viewer without relying on a problematic parameter.
+      return IgnorePointer(
+        child: SingleChildScrollView(
+          child: quill.QuillEditor(
+            controller: _quillController!,
+            focusNode: _quillFocusNode,
+            scrollController: _quillScrollController,
+            // We use the standard config from the working editor page.
+            // The IgnorePointer widget handles the "read-only" state.
+            config: quill.QuillEditorConfig(
+              padding: const EdgeInsets.all(12.0),
+              embedBuilders: FlutterQuillEmbeds.editorBuilders(),
+              expands: false,
+              autoFocus: false,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // For other content types, display the plain text transcript.
+    final transcript = _currentSubmodule?.transcript ?? '';
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Text(transcript.isNotEmpty ? transcript : 'No transcript available for this lesson.'),
     );
   }
 
@@ -488,7 +566,7 @@ class _CourseContentPageState extends State<CourseContentPage> with SingleTicker
         SizedBox(
           height: 300, // Adjust height as needed for the tab content area
           child: TabBarView(controller: _tabController, children: [
-            _buildTranscriptSection(_currentSubmodule?.transcript ?? ''),
+            _buildTranscriptSection(),
             _buildNotesSection(),
             _buildCommentsSection(),
           ]),

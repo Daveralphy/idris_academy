@@ -19,6 +19,11 @@ dependencies:
   # Add these lines for image selection and file path access
   path_provider: ^2.1.2
 
+  # Rich Text Editor
+  flutter_quill: ^11.4.1
+  flutter_quill_extensions: ^11.0.0
+  path: ^1.9.0
+
   # Core Functionality & State Management
   connectivity_plus: ^6.0.3
   provider: ^6.1.2
