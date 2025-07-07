@@ -20,6 +20,10 @@ import 'package:idris_academy/services/theme_service.dart';
 import 'package:provider/provider.dart';
 
 void main() {
+  // Ensure that plugin services are initialized before calling `runApp()`
+  // This is required for the native splash screen to work correctly.
+  WidgetsFlutterBinding.ensureInitialized();
+
   runApp(
     MultiProvider(
       providers: [
@@ -55,16 +59,29 @@ class MyApp extends StatelessWidget {
             Locale('en'), // English
             // Add other locales your app supports here
           ],
-          home: Builder(
-            builder: (context) {
-              if (connectivityService.isConnected) {
-                return const AuthWrapper();
-              } else {
-                return const NoInternetPage();
-              }
-            },
-          ),
+          // The app now starts directly at the AppRoot after the native splash.
+          home: const AppRoot(),
         );
+      },
+    );
+  }
+}
+
+/// This widget wraps the core app logic, handling connectivity checks.
+class AppRoot extends StatelessWidget {
+  const AppRoot({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // This Consumer was previously in the `home` property of MaterialApp.
+    // It ensures the app reacts to connectivity changes.
+    return Consumer<ConnectivityService>(
+      builder: (context, connectivityService, child) {
+        if (connectivityService.isConnected) {
+          return const AuthWrapper();
+        } else {
+          return const NoInternetPage();
+        }
       },
     );
   }
@@ -360,8 +377,8 @@ class _MyHomePageState extends State<MyHomePage> {
           height: 70,
           destinations: <Widget>[
             NavigationDestination(
-              icon: Icon(Icons.space_dashboard_outlined, color: colorScheme.onPrimary.withOpacity(0.7)),
-              selectedIcon: Icon(Icons.space_dashboard, color: colorScheme.onPrimary),
+              icon: Icon(Icons.dashboard_outlined, color: colorScheme.onPrimary.withOpacity(0.7)),
+              selectedIcon: Icon(Icons.dashboard, color: colorScheme.onPrimary),
               label: 'Dashboard',
             ),
             NavigationDestination(

@@ -43,6 +43,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.6
 
 # The following section is specific to Flutter packages.
 flutter:
@@ -51,3 +53,19 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+flutter_native_splash:
+  # This color will be used as the background for your splash screen.
+  color: "#FFFFFF" # White
+  # The image to display in the center of the splash screen.
+  image: assets/icon/icon.png
+
+  # The android_12 section is required for newer Android versions.
+  android_12:
+    image: assets/icon/icon.png
+    color: "#FFFFFF"
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon/icon.png"
+  min_sdk_android: 21

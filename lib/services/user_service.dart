@@ -53,7 +53,7 @@ class UserService extends ChangeNotifier {
             thumbnailUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=2070&auto=format&fit=crop',
             tags: ['Flutter', 'Advanced'],
             progress: 0.65,
-            lastAccessed: 'Lesson 5: Slivers',
+            lastAccessedSubmoduleId: 'sub1_1_2', // Example: User last viewed 'States of Matter'
             teacherName: 'Dr. Idris'),
         CourseModel(
             id: 'c2',
@@ -62,7 +62,7 @@ class UserService extends ChangeNotifier {
             thumbnailUrl: 'https://images.unsplash.com/photo-1628258334105-2a0b3d6ef5f3?q=80&w=1974&auto=format&fit=crop',
             tags: ['Flutter', 'State Management'],
             progress: 0.30,
-            lastAccessed: 'Lesson 2: ChangeNotifier',
+            lastAccessedSubmoduleId: 'sub2_1_1', // Example: User last viewed 'The Cell'
             teacherName: 'Prof. Ada'),
       ],
       recommendedCourses: [
@@ -663,9 +663,7 @@ class UserService extends ChangeNotifier {
     final newCourse = course.copyWith(
       isEnrolled: true,
       progress: 0.0,
-      lastAccessed: course.modules.isNotEmpty && course.modules.first.submodules.isNotEmpty
-          ? course.modules.first.submodules.first.title
-          : 'Not started',
+      lastAccessedSubmoduleId: null, // User hasn't accessed any submodule yet.
       modules: course.modules.map((module) => module.copyWith(
         title: module.title, // Pass the existing title as it's required
         submodules: module.submodules.map((sub) => sub.copyWith(isCompleted: false, title: sub.title, transcript: sub.transcript)).toList(),
@@ -715,15 +713,75 @@ class UserService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Updates the last accessed submodule for a given course.
+  void updateLastAccessedSubmodule(String courseId, String submoduleId) {
+    final userData = _getCurrentUserData();
+    if (userData == null) return;
+
+    final courseIndex = userData.inProgressCourses.indexWhere((c) => c.id == courseId);
+    if (courseIndex != -1) {
+      final course = userData.inProgressCourses[courseIndex];
+      // Only update if it's different to avoid unnecessary rebuilds.
+      if (course.lastAccessedSubmoduleId != submoduleId) {
+        userData.inProgressCourses[courseIndex] = course.copyWith(lastAccessedSubmoduleId: submoduleId);
+        notifyListeners();
+      }
+    }
+  }
+
   // Retrieves a specific course with user-specific progress
   CourseModel? getUserCourse(String courseId) {
     final userData = _getCurrentUserData();
-    if (userData == null) {
-      return null;
-    }
+    if (userData == null) return null;
+
+    // Get the master course from the catalog as the source of truth for content.
+    final masterCourse = getCourseFromCatalog(courseId);
+    if (masterCourse == null) return null; // Course may have been deleted.
+
     try {
-      // firstWhere throws a StateError if no element is found.
-      return userData.inProgressCourses.firstWhere((c) => c.id == courseId);
+      // Get the user's current (potentially outdated) version of the course.
+      final userCourse = userData.inProgressCourses.firstWhere((c) => c.id == courseId);
+
+      // --- SYNC LOGIC ---
+      // Create a map of the user's submodule completion status for quick lookup.
+      final Map<String, bool> userProgressMap = {};
+      for (final module in userCourse.modules) {
+        for (final submodule in module.submodules) {
+          userProgressMap[submodule.id] = submodule.isCompleted;
+        }
+      }
+
+      // Rebuild the modules list from the master catalog, applying the user's progress.
+      final syncedModules = masterCourse.modules.map((masterModule) {
+        return masterModule.copyWith(
+          title: masterModule.title, // Pass title as it appears to be required by ModuleModel.copyWith
+          submodules: masterModule.submodules.map((masterSubmodule) {
+            // Apply the user's saved progress to the master submodule structure.
+            return masterSubmodule.copyWith(
+              isCompleted: userProgressMap[masterSubmodule.id] ?? false,
+            );
+          }).toList(),
+        );
+      }).toList();
+
+      // Recalculate progress based on the newly synced data.
+      final totalSubmodules = syncedModules.fold<int>(0, (sum, module) => sum + module.submodules.length);
+      final completedSubmodules = syncedModules.fold<int>(0, (sum, module) => sum + module.submodules.where((s) => s.isCompleted).length);
+      final newProgress = totalSubmodules > 0 ? completedSubmodules / totalSubmodules : 0.0;
+
+      // Create the final, synced course object.
+      final syncedCourse = masterCourse.copyWith(
+        isEnrolled: true,
+        progress: newProgress,
+        lastAccessedSubmoduleId: userCourse.lastAccessedSubmoduleId, // Keep the user's last accessed lesson
+        modules: syncedModules,
+      );
+
+      // Persist the synced course back to the user's data for future use.
+      final courseIndex = userData.inProgressCourses.indexWhere((c) => c.id == courseId);
+      userData.inProgressCourses[courseIndex] = syncedCourse;
+
+      return syncedCourse;
     } on StateError {
       return null; // Return null if the course isn't in the user's list.
     }

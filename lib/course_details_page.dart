@@ -3,6 +3,7 @@ import 'package:idris_academy/models/course_model.dart';
 import 'package:idris_academy/services/user_service.dart';
 import 'package:provider/provider.dart';
 import 'package:idris_academy/course_content_page.dart';
+import 'package:idris_academy/course_modules_page.dart';
 
 class CourseDetailsPage extends StatelessWidget {
   final String courseId;
@@ -48,7 +49,7 @@ class CourseDetailsPage extends StatelessWidget {
                         children: module.submodules
                             .map((submodule) => ListTile(
                                   leading: const Icon(Icons.play_circle_outline, size: 20),
-                                  title: Text(submodule.title),
+                                  title: Text(submodule.title, style: Theme.of(context).textTheme.bodyMedium),
                                   dense: true,
                                 ))
                             .toList(),
@@ -157,16 +158,34 @@ class CourseDetailsPage extends StatelessWidget {
 
         if (isEnrolled) {
           final userCourse = userService.getUserCourse(course.id);
-          buttonText = (userCourse != null && userCourse.progress > 0) ? 'Continue Learning' : 'Start Learning';
-          onPressedAction = () {
-            // Navigate to the course content page
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => CourseContentPage(courseId: course.id),
-              ),
-            );
-          };
+          final hasStarted = userCourse?.lastAccessedSubmoduleId != null;
+
+          if (hasStarted) {
+            buttonText = 'Continue Learning';
+            onPressedAction = () {
+              // Jump directly to the last accessed lesson.
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CourseContentPage(
+                    courseId: course.id,
+                    initialSubmoduleId: userCourse!.lastAccessedSubmoduleId,
+                  ),
+                ),
+              );
+            };
+          } else {
+            buttonText = 'Start Learning';
+            onPressedAction = () {
+              // Go to the modules page to start from the beginning.
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CourseModulesPage(courseId: course.id),
+                ),
+              );
+            };
+          }
         } else {
           buttonText = 'Enroll Now';
           onPressedAction = () {

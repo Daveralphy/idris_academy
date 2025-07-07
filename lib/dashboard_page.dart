@@ -189,6 +189,8 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget _buildCourseCard(BuildContext context, {required CourseModel course}) {
     // ignore: unused_local_variable
     final colorScheme = Theme.of(context).colorScheme;
+    final buttonText = course.progress > 0 ? 'Continue' : 'Start';
+
     return Card(
       margin: const EdgeInsets.only(right: 14),
       clipBehavior: Clip.antiAlias,
@@ -197,65 +199,62 @@ class _DashboardPageState extends State<DashboardPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildCourseThumbnail(context, thumbnailUrl: course.thumbnailUrl),
-            const SizedBox(height: 12), // Reduced spacing to prevent overflow
+            // The thumbnail is tappable to go to the details page.
+            InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => CourseDetailsPage(courseId: course.id)),
+                );
+              },
+              child: _buildCourseThumbnail(context, thumbnailUrl: course.thumbnailUrl),
+            ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 4, 10, 4),
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.max,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          course.title,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Last: ${course.lastAccessed}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        LinearProgressIndicator(
-                          value: course.progress,
-                          backgroundColor: Colors.black12,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(height: 2),
-                        Text('${(course.progress * 100).toInt()}% Complete', style: Theme.of(context).textTheme.bodySmall),
-                      ],
+                    Text(
+                      course.title,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                      maxLines: 1, // Revert to 1 line to make space for button
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const Spacer(), // This pushes the button to the bottom
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(
+                      value: course.progress,
+                      backgroundColor: Colors.black12,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(height: 4),
+                    Text('${(course.progress * 100).toInt()}% Complete', style: Theme.of(context).textTheme.bodySmall),
+                    const Spacer(), // Pushes the button to the bottom
                     Align(
                       alignment: Alignment.centerRight,
                       child: ElevatedButton(
                         onPressed: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => CourseContentPage(courseId: course.id)),
+                            MaterialPageRoute(
+                              builder: (context) => CourseContentPage(
+                                courseId: course.id,
+                                initialSubmoduleId: course.lastAccessedSubmoduleId,
+                              ),
+                            ),
                           );
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).colorScheme.primary,
-                          foregroundColor: Theme.of(context).colorScheme.onPrimary,
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                           textStyle: Theme.of(context).textTheme.labelSmall,
                         ),
-                        child: const Text('Continue'),
+                        child: Text(buttonText),
                       ),
                     ),
                   ],
                 ),
               ),
-            )
+            ),
           ],
         ),
       ),

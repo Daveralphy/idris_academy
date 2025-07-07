@@ -15,10 +15,12 @@ import 'package:video_player/video_player.dart';
 
 class CourseContentPage extends StatefulWidget {
   final String courseId;
+  final String? initialSubmoduleId;
 
   const CourseContentPage({
     super.key,
     required this.courseId,
+    this.initialSubmoduleId,
   });
 
   @override
@@ -44,12 +46,37 @@ class _CourseContentPageState extends State<CourseContentPage> with SingleTicker
     _tabController = TabController(length: 3, vsync: this);
     final userService = Provider.of<UserService>(context, listen: false);
     final course = userService.getUserCourse(widget.courseId);
-    if (course != null && course.modules.isNotEmpty && course.modules.first.submodules.isNotEmpty) {
-      _selectSubmodule(course.modules.first.submodules.first);
+    if (course != null && course.modules.isNotEmpty) {
+      SubmoduleModel? startingSubmodule;
+
+      // Try to find the specified initial submodule if provided.
+      if (widget.initialSubmoduleId != null) {
+        for (final module in course.modules) {
+          try {
+            startingSubmodule = module.submodules.firstWhere((s) => s.id == widget.initialSubmoduleId);
+            break; // Found it, exit loop.
+          } on StateError {
+            // Not in this module, continue searching.
+          }
+        }
+      }
+
+      // If no initial submodule is found or provided, default to the first one in the course.
+      if (startingSubmodule == null && course.modules.first.submodules.isNotEmpty) {
+        startingSubmodule = course.modules.first.submodules.first;
+      }
+
+      if (startingSubmodule != null) {
+        _selectSubmodule(startingSubmodule);
+      }
     }
   }
 
   void _selectSubmodule(SubmoduleModel submodule) {
+    // Update the user's last accessed submodule whenever a new one is selected.
+    final userService = Provider.of<UserService>(context, listen: false);
+    userService.updateLastAccessedSubmodule(widget.courseId, submodule.id);
+
     setState(() {
       _currentSubmodule = submodule;
       _videoCompleted = false;
@@ -260,10 +287,15 @@ class _CourseContentPageState extends State<CourseContentPage> with SingleTicker
                 const SizedBox(height: 24),
                 // The content player now handles all content types.
                 _buildContentPlayer(),
-                const Divider(height: 32.0, thickness: 1.0),
-                // The new tabbed interface for transcript, notes, and comments.
-                _buildTabbedContentSection(),
-                const SizedBox(height: 16),
+
+                // Only show the tabs for video content, which has transcripts and notes.
+                if (_currentSubmodule!.contentType == ContentType.youtubeVideo ||
+                    _currentSubmodule!.contentType == ContentType.networkVideo) ...[
+                  const Divider(height: 32.0, thickness: 1.0),
+                  _buildTabbedContentSection(),
+                  const SizedBox(height: 16),
+                ],
+
                 // For text lessons, show a dynamic completion/navigation button.
                 // For other types, show standard navigation.
                 if (isText) _buildTextLessonActions(context, course, _currentSubmodule!, userService),
@@ -390,10 +422,29 @@ class _CourseContentPageState extends State<CourseContentPage> with SingleTicker
               _buildContentPlaceholder('Image could not be loaded.', icon: Icons.image_not_supported),
         );
       case ContentType.text:
-        // For text lessons, show a placeholder in the player area.
-        // The actual content is in the "Transcript" tab.
-        return _buildContentPlaceholder('This is a reading lesson.\nSee the tabs below for content.',
-            icon: Icons.article_outlined);
+        // For text lessons, the main content is the rich text editor itself.
+        if (_quillController != null) {
+          // Reverting to IgnorePointer to ensure stability and prevent parameter errors.
+          // This makes the content view-only and blocks all interactions.
+          return IgnorePointer(
+            child: SingleChildScrollView(
+              child: quill.QuillEditor(
+                controller: _quillController!,
+                focusNode: _quillFocusNode,
+                scrollController: _quillScrollController,
+                config: quill.QuillEditorConfig(
+                  // readOnly is removed to prevent the error. IgnorePointer handles non-interactivity.
+                  padding: const EdgeInsets.all(12.0),
+                  embedBuilders: FlutterQuillEmbeds.editorBuilders(),
+                  expands: false,
+                  autoFocus: false,
+                ),
+              ),
+            ),
+          );
+        } else {
+          return _buildContentPlaceholder('Loading lesson...', icon: Icons.article_outlined);
+        }
     }
 
     // Default/loading state
@@ -498,31 +549,8 @@ class _CourseContentPageState extends State<CourseContentPage> with SingleTicker
   }
 
   Widget _buildTranscriptSection() {
-    // For text lessons, display the rich text editor.
-    if (_currentSubmodule?.contentType == ContentType.text && _quillController != null) {
-      // To definitively solve the parameter issues, we wrap the editor in an
-      // IgnorePointer. This blocks all user interaction, effectively making
-      // the editor a read-only viewer without relying on a problematic parameter.
-      return IgnorePointer(
-        child: SingleChildScrollView(
-          child: quill.QuillEditor(
-            controller: _quillController!,
-            focusNode: _quillFocusNode,
-            scrollController: _quillScrollController,
-            // We use the standard config from the working editor page.
-            // The IgnorePointer widget handles the "read-only" state.
-            config: quill.QuillEditorConfig(
-              padding: const EdgeInsets.all(12.0),
-              embedBuilders: FlutterQuillEmbeds.editorBuilders(),
-              expands: false,
-              autoFocus: false,
-            ),
-          ),
-        ),
-      );
-    }
-
-    // For other content types, display the plain text transcript.
+    // This section now only displays the plain text transcript for video lessons.
+    // The rich text content is now handled by _buildContentPlayer.
     final transcript = _currentSubmodule?.transcript ?? '';
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),

@@ -11,7 +11,7 @@ class CourseModel {
 
   // User-specific progress fields
   final double progress;
-  final String lastAccessed;
+  final String? lastAccessedSubmoduleId; // Changed from lastAccessed
   final bool isEnrolled;
 
   CourseModel({
@@ -23,7 +23,7 @@ class CourseModel {
     required this.teacherName,
     this.modules = const [],
     this.progress = 0.0,
-    this.lastAccessed = 'Not started',
+    this.lastAccessedSubmoduleId,
     this.isEnrolled = false,
   });
 
@@ -37,7 +37,7 @@ class CourseModel {
     List<ModuleModel>? modules,
     String? teacherName,
     double? progress,
-    String? lastAccessed,
+    String? lastAccessedSubmoduleId,
     bool? isEnrolled,
   }) {
     return CourseModel(
@@ -49,7 +49,7 @@ class CourseModel {
       modules: modules ?? this.modules,
       teacherName: teacherName ?? this.teacherName,
       progress: progress ?? this.progress,
-      lastAccessed: lastAccessed ?? this.lastAccessed,
+      lastAccessedSubmoduleId: lastAccessedSubmoduleId ?? this.lastAccessedSubmoduleId,
       isEnrolled: isEnrolled ?? this.isEnrolled,
     );
   }
