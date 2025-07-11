@@ -154,12 +154,15 @@ class _SupportPageState extends State<SupportPage> {
             Expanded(
               child: TextField(
                 controller: _textController,
+                keyboardType: TextInputType.multiline,
+                maxLines: null, // Allows for an unlimited number of lines
+                textCapitalization: TextCapitalization.sentences,
                 decoration: const InputDecoration(
                   hintText: 'Type your message...',
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(horizontal: 8.0),
                 ),
-                onSubmitted: (_) => _sendMessage(),
+                // onSubmitted is removed to allow for newlines.
               ),
             ),
             IconButton(

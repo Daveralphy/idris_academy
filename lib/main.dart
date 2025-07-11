@@ -6,14 +6,15 @@ import 'package:idris_academy/no_internet_page.dart';
 import 'package:idris_academy/dashboard_page.dart';
 import 'package:idris_academy/faqs_page.dart';
 import 'package:idris_academy/about_us_page.dart';
+import 'package:idris_academy/arena_page.dart';
 import 'package:idris_academy/login_page.dart';
 import 'package:idris_academy/courses_page.dart';
 import 'package:idris_academy/notifications_page.dart';
-import 'package:idris_academy/support_page.dart';
 import 'package:idris_academy/profile_page.dart';
 import 'package:idris_academy/services/connectivity_service.dart';
 import 'package:idris_academy/services/user_service.dart';
 import 'package:idris_academy/teacher/teacher_home_page.dart';
+import 'package:idris_academy/draggable_support_button.dart';
 // ignore: depend_on_referenced_packages
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart';
@@ -136,8 +137,8 @@ class _MyHomePageState extends State<MyHomePage> {
     _pageOptions = <Widget>[
       DashboardPage(onNavigateToTab: _onItemTapped),
       const CoursesPage(),
+      const ArenaPage(),
       const NotificationsPage(),
-      const SupportPage(),
       const ProfilePage(),
     ];
   }
@@ -145,8 +146,8 @@ class _MyHomePageState extends State<MyHomePage> {
   static const List<String> _pageTitles = <String>[
     'Idris Academy', // Special case for Dashboard
     'Courses',
+    'Arena',
     'Notifications',
-    'Support',
     'Profile',
   ];
 
@@ -334,9 +335,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   MaterialPageRoute(builder: (context) => const FaqsPage()),
                 );
                 // If the user tapped the "Chat" button on the FAQs page, switch to the support tab.
-                if (result == 'go_to_support') {
-                  _onItemTapped(3); // Support is at index 3
-                }
+                // The logic to open the support modal will be handled differently later.
               },
             ),
             Consumer<UserService>(
@@ -371,7 +370,17 @@ class _MyHomePageState extends State<MyHomePage> {
           ],
         ),
       ),
-      body: _pageOptions.elementAt(_selectedIndex),
+      body: LayoutBuilder(builder: (context, constraints) {
+        return Stack(
+          // Using expand ensures the Stack fills the available space,
+          // providing correct constraints for positioning the button.
+          fit: StackFit.expand,
+          children: [
+            _pageOptions.elementAt(_selectedIndex),
+            DraggableSupportButton(parentConstraints: constraints),
+          ],
+        );
+      }),
       // Switched to NavigationBar for Material 3 styling and indicator support.
       bottomNavigationBar: Container(
         decoration: appGradientDecoration,
@@ -397,14 +406,14 @@ class _MyHomePageState extends State<MyHomePage> {
               label: 'Courses',
             ),
             NavigationDestination(
+              icon: Icon(Icons.forum_outlined, color: colorScheme.onPrimary.withOpacity(0.7)),
+              selectedIcon: Icon(Icons.forum, color: colorScheme.onPrimary),
+              label: 'Arena',
+            ),
+            NavigationDestination(
               icon: Icon(Icons.notifications_none_outlined, color: colorScheme.onPrimary.withOpacity(0.7)),
               selectedIcon: Icon(Icons.notifications, color: colorScheme.onPrimary),
               label: 'Notifications',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.inbox_outlined, color: colorScheme.onPrimary.withOpacity(0.7)),
-              selectedIcon: Icon(Icons.inbox, color: colorScheme.onPrimary),
-              label: 'Support',
             ),
             NavigationDestination(
               icon: Icon(Icons.person_outline, color: colorScheme.onPrimary.withOpacity(0.7)),

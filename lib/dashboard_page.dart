@@ -99,8 +99,8 @@ class _DashboardPageState extends State<DashboardPage> {
               child: const Text('View Details'),
               onPressed: () {
                 Navigator.of(dialogContext).pop();
-                // Navigate to notifications tab (index 2)
-                widget.onNavigateToTab(2);
+                // Navigate to notifications tab (index 3)
+                widget.onNavigateToTab(3);
               },
             ),
           ],
@@ -343,7 +343,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Widget _buildSummaryRow(BuildContext context, UserService userService) {
     return Row(
-      children: [Expanded(child: _summaryCard(context, icon: Icons.notifications_outlined, title: 'Notifications', count: userService.getNotificationCount(), onTap: () => widget.onNavigateToTab(2)))],
+      children: [Expanded(child: _summaryCard(context, icon: Icons.notifications_outlined, title: 'Notifications', count: userService.getNotificationCount(), onTap: () => widget.onNavigateToTab(3)))],
     );
   }
 
@@ -473,9 +473,7 @@ class _DashboardPageState extends State<DashboardPage> {
           MaterialPageRoute(builder: (context) => const FaqsPage()),
         );
         // If the user tapped the "Chat" button on the FAQs page, switch to the support tab.
-        if (result == 'go_to_support') {
-          widget.onNavigateToTab(3); // Support is at index 3
-        }
+        // The logic to open the support modal will be handled differently later.
       },
     );
   }

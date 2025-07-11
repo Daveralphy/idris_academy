@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:idris_academy/services/user_service.dart';
 import 'package:idris_academy/teacher/manage_courses_page.dart';
