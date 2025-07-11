@@ -135,18 +135,18 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     _pageOptions = <Widget>[
-      DashboardPage(onNavigateToTab: _onItemTapped),
-      const CoursesPage(),
       const ArenaPage(),
+      const CoursesPage(),
+      DashboardPage(onNavigateToTab: _onItemTapped),
       const NotificationsPage(),
       const ProfilePage(),
     ];
   }
 
   static const List<String> _pageTitles = <String>[
-    'Idris Academy', // Special case for Dashboard
-    'Courses',
     'Arena',
+    'Courses',
+    'Idris Academy', // Special case for Dashboard
     'Notifications',
     'Profile',
   ];
@@ -159,7 +159,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDashboard = _selectedIndex == 0;
+    final bool isDashboard = _selectedIndex == 2; // Dashboard is now at index 2
     final colorScheme = Theme.of(context).colorScheme;
 
     // Define a consistent gradient decoration to be used across the app.
@@ -377,7 +377,7 @@ class _MyHomePageState extends State<MyHomePage> {
           fit: StackFit.expand,
           children: [
             _pageOptions.elementAt(_selectedIndex),
-            if (_selectedIndex == 0) // Only show on the Dashboard (index 0)
+            if (_selectedIndex == 2) // Only show on the Dashboard (index 2)
               DraggableSupportButton(parentConstraints: constraints),
           ],
         );
@@ -397,9 +397,9 @@ class _MyHomePageState extends State<MyHomePage> {
           height: 70,
           destinations: <Widget>[
             NavigationDestination(
-              icon: Icon(Icons.dashboard_outlined, color: colorScheme.onPrimary.withOpacity(0.7)),
-              selectedIcon: Icon(Icons.dashboard, color: colorScheme.onPrimary),
-              label: 'Dashboard',
+              icon: Icon(Icons.forum_outlined, color: colorScheme.onPrimary.withOpacity(0.7)),
+              selectedIcon: Icon(Icons.forum, color: colorScheme.onPrimary),
+              label: 'Arena',
             ),
             NavigationDestination(
               icon: Icon(Icons.school_outlined, color: colorScheme.onPrimary.withOpacity(0.7)),
@@ -407,9 +407,9 @@ class _MyHomePageState extends State<MyHomePage> {
               label: 'Courses',
             ),
             NavigationDestination(
-              icon: Icon(Icons.forum_outlined, color: colorScheme.onPrimary.withOpacity(0.7)),
-              selectedIcon: Icon(Icons.forum, color: colorScheme.onPrimary),
-              label: 'Arena',
+              icon: Icon(Icons.dashboard_outlined, color: colorScheme.onPrimary.withOpacity(0.7)),
+              selectedIcon: Icon(Icons.dashboard, color: colorScheme.onPrimary),
+              label: 'Dashboard',
             ),
             NavigationDestination(
               icon: Icon(Icons.notifications_none_outlined, color: colorScheme.onPrimary.withOpacity(0.7)),
