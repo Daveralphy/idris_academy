@@ -377,7 +377,8 @@ class _MyHomePageState extends State<MyHomePage> {
           fit: StackFit.expand,
           children: [
             _pageOptions.elementAt(_selectedIndex),
-            DraggableSupportButton(parentConstraints: constraints),
+            if (_selectedIndex == 0) // Only show on the Dashboard (index 0)
+              DraggableSupportButton(parentConstraints: constraints),
           ],
         );
       }),

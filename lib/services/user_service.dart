@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
+import 'package:idris_academy/models/comment_model.dart';
 import 'package:idris_academy/models/course_model.dart';
+import 'package:idris_academy/models/post_model.dart';
 import 'package:idris_academy/models/user_model.dart';
 import 'package:idris_academy/models/user_data_model.dart';
 import 'package:idris_academy/models/notification_model.dart';
@@ -51,12 +53,21 @@ class UserService extends ChangeNotifier {
       email: 'teacher@example.com',
       role: 'teacher',
     ),
+    'uid_67890': UserModel(
+      id: 'uid_67890',
+      name: 'Aisha Bello',
+      username: 'aisha',
+      email: 'aisha@example.com',
+      role: 'student',
+      profilePicturePath: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?q=80&w=1961&auto=format&fit=crop',
+    ),
   };
 
   // This map acts as a mock password storage.
   final Map<String, String> _mockUserPasswords = {
     'uid_12345': 'testpassword',
     'uid_teacher': 'teacherpass', // Teacher user for demonstration
+    'uid_67890': 'aishapass',
   };
 
   // This map acts as our in-memory mock database.
@@ -162,6 +173,51 @@ class UserService extends ChangeNotifier {
     ),
     // The new user 'uid_67890' has no data yet.
   };
+
+  // This list acts as our central feed for the Arena page.
+  final List<PostModel> _arenaPosts = [
+    PostModel(
+      id: 'post1',
+      authorId: 'uid_teacher',
+      authorName: 'Dr. Idris',
+      authorProfilePictureUrl: null, // Dr Idris doesn't have one, will show default icon
+      timestamp: DateTime.now().subtract(const Duration(minutes: 30)),
+      text: 'Welcome to the new Arena! This is a place for students to connect, share ideas, and help each other. Feel free to start a discussion.',
+      likeCount: 15,
+      comments: [
+        CommentModel(
+          id: 'c1_1',
+          authorId: 'uid_12345',
+          authorName: 'Raphael (Student)',
+          authorProfilePictureUrl: null, // Raphael doesn't have one
+          timestamp: DateTime.now().subtract(const Duration(minutes: 25)),
+          text: 'This is a great idea! Looking forward to it.',
+        ),
+      ],
+    ),
+    PostModel(
+      id: 'post2',
+      authorId: 'uid_67890', // New student Aisha
+      authorName: 'Aisha Bello',
+      authorProfilePictureUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?q=80&w=1961&auto=format&fit=crop',
+      timestamp: DateTime.now().subtract(const Duration(hours: 2)),
+      text: 'Has anyone started the "Mastering Newtonian Physics" course? I\'m finding the first module on Kinematics a bit challenging. Any tips?',
+      likeCount: 5,
+      isLikedByUser: true, // Let's say the current user (Raphael) liked this.
+      comments: [],
+    ),
+    PostModel(
+      id: 'post3',
+      authorId: 'uid_12345',
+      authorName: 'Raphael (Student)',
+      authorProfilePictureUrl: null,
+      timestamp: DateTime.now().subtract(const Duration(days: 1)),
+      text: 'Just finished the "Complete Secondary School Chemistry" course. The module on Chemical Reactions was fantastic. Highly recommend it!',
+      imageUrl: 'https://media.istockphoto.com/id/469951129/photo/group-of-multi-ethnic-students-in-chemistry-lab.jpg?s=612x612&w=0&k=20&c=WbKS_5P0HrNGWXTmNifwjh6Dw0mzj_spghkbJYd9xnY=',
+      likeCount: 22,
+      comments: [],
+    ),
+  ];
 
   /// Loads the user session from local storage when the app starts.
   Future<void> loadUserFromStorage() async {
@@ -406,6 +462,13 @@ class UserService extends ChangeNotifier {
         notifyListeners();
       }
     }
+  }
+
+  List<PostModel> getArenaPosts() {
+    // In a real app, you'd apply pagination here.
+    // For now, just sort by most recent.
+    _arenaPosts.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    return _arenaPosts;
   }
 
   CourseModel? getCourseFromCatalog(String courseId) {
