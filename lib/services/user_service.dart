@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'dart:io';
 import 'package:idris_academy/models/comment_model.dart';
 import 'package:idris_academy/models/course_model.dart';
 import 'package:idris_academy/models/post_model.dart';
@@ -12,6 +13,7 @@ import 'package:idris_academy/models/submodule_model.dart';
 import 'package:idris_academy/models/quiz_model.dart';
 import 'package:idris_academy/models/announcement_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 
 class UserService extends ChangeNotifier {
   // This is where you would place your secret key to connect to a real database.
@@ -462,6 +464,35 @@ class UserService extends ChangeNotifier {
         notifyListeners();
       }
     }
+  }
+
+  Future<void> addPost(String text, {File? image}) async {
+    if (_currentUser == null) return;
+
+    String? imageUrl;
+    if (image != null) {
+      // In a real app, you would upload the image to cloud storage and get the URL.
+      // For this mock implementation, we'll copy it to the app's documents directory
+      // and store the local file path.
+      final directory = await getApplicationDocumentsDirectory();
+      final fileName = 'post_img_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final newImagePath = '${directory.path}/$fileName';
+      await image.copy(newImagePath);
+      imageUrl = newImagePath;
+    }
+
+    final newPost = PostModel(
+      id: 'post_${DateTime.now().millisecondsSinceEpoch}',
+      authorId: _currentUser!.id,
+      authorName: _currentUser!.name,
+      authorProfilePictureUrl: _currentUser!.profilePicturePath,
+      timestamp: DateTime.now(),
+      text: text,
+      imageUrl: imageUrl,
+    );
+
+    _arenaPosts.insert(0, newPost); // Insert at the beginning to show newest first
+    notifyListeners();
   }
 
   List<PostModel> getArenaPosts() {

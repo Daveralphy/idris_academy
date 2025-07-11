@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:idris_academy/models/post_model.dart';
+import 'package:idris_academy/post_editor_page.dart';
 import 'package:idris_academy/services/user_service.dart';
 import 'package:idris_academy/widgets/post_card.dart';
 import 'package:provider/provider.dart';
@@ -31,9 +32,11 @@ class ArenaPage extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Placeholder for creating a new post
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Creating a new post is coming soon!')),
+          // Navigate to the PostEditorPage
+          Navigator.push(
+            context,
+            // Using a MaterialPageRoute for standard platform-specific transitions.
+            MaterialPageRoute(builder: (context) => const PostEditorPage()),
           );
         },
         tooltip: 'New Post',

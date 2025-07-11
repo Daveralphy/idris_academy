@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:idris_academy/models/post_model.dart';
 import 'package:intl/intl.dart';
+import 'dart:io';
 
 class PostCard extends StatelessWidget {
   final PostModel post;
@@ -38,10 +39,12 @@ class PostCard extends StatelessWidget {
       child: Row(
         children: [
           CircleAvatar(
-            backgroundImage: post.authorProfilePictureUrl != null && post.authorProfilePictureUrl!.startsWith('http')
-                ? NetworkImage(post.authorProfilePictureUrl!)
+            backgroundImage: post.authorProfilePictureUrl != null
+                ? (post.authorProfilePictureUrl!.startsWith('http')
+                    ? NetworkImage(post.authorProfilePictureUrl!)
+                    : FileImage(File(post.authorProfilePictureUrl!))) as ImageProvider
                 : null,
-            child: post.authorProfilePictureUrl == null || !post.authorProfilePictureUrl!.startsWith('http')
+            child: post.authorProfilePictureUrl == null
                 ? const Icon(Icons.person)
                 : null,
           ),
@@ -70,28 +73,42 @@ class PostCard extends StatelessWidget {
   }
 
   Widget _buildPostImage(BuildContext context) {
+    final isNetworkImage = post.imageUrl!.startsWith('http');
     return Padding(
       padding: const EdgeInsets.only(top: 8.0),
-      child: Image.network(
-        post.imageUrl!,
-        width: double.infinity,
-        fit: BoxFit.cover,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Container(
-            height: 250,
-            color: Theme.of(context).colorScheme.surface,
-            child: const Center(child: CircularProgressIndicator()),
-          );
-        },
-        errorBuilder: (context, error, stackTrace) {
-          return Container(
-            height: 250,
-            color: Theme.of(context).colorScheme.surface,
-            child: const Center(child: Icon(Icons.image_not_supported)),
-          );
-        },
-      ),
+      child: isNetworkImage
+          ? Image.network(
+              post.imageUrl!,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  height: 250,
+                  color: Theme.of(context).colorScheme.surface,
+                  child: const Center(child: CircularProgressIndicator()),
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: 250,
+                  color: Theme.of(context).colorScheme.surface,
+                  child: const Center(child: Icon(Icons.image_not_supported)),
+                );
+              },
+            )
+          : Image.file(
+              File(post.imageUrl!),
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: 250,
+                  color: Theme.of(context).colorScheme.surface,
+                  child: const Center(child: Icon(Icons.image_not_supported)),
+                );
+              },
+            ),
     );
   }
 
