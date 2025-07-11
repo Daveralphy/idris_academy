@@ -5,12 +5,18 @@ import 'package:idris_academy/models/user_data_model.dart';
 import 'package:idris_academy/models/notification_model.dart';
 import 'package:idris_academy/models/chat_message_model.dart';
 import 'package:idris_academy/models/module_model.dart';
+import 'package:idris_academy/models/quiz_attempt_model.dart';
 import 'package:idris_academy/models/submodule_model.dart';
+import 'package:idris_academy/models/quiz_model.dart';
 import 'package:idris_academy/models/announcement_model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class UserService extends ChangeNotifier {
   // This is where you would place your secret key to connect to a real database.
   // final String _apiKey = 'YOUR_DATABASE_API_KEY_HERE';
+
+  // Key for storing the logged-in user's ID in SharedPreferences.
+  static const String _loggedInUserIdKey = 'loggedInUserId';
 
   UserModel? _currentUser;
   UserModel? get currentUser => _currentUser;
@@ -27,19 +33,31 @@ class UserService extends ChangeNotifier {
   // NOTE: This assumes your `UserModel` in `user_model.dart` has a `role` property.
   bool get isTeacher => _currentUser?.role == 'teacher';
 
+  // Centralized mock user definitions.
+  final Map<String, UserModel> _mockUsers = {
+    'uid_12345': UserModel(
+      id: 'uid_12345',
+      name: 'Raphael (Student)',
+      username: 'testuser',
+      email: 'testuser@gmail.com',
+      dob: DateTime(1995, 5, 23),
+      phoneNumber: '+2348012345678',
+      role: 'student',
+    ),
+    'uid_teacher': UserModel(
+      id: 'uid_teacher',
+      name: 'Dr. Idris',
+      username: 'teacher',
+      email: 'teacher@example.com',
+      role: 'teacher',
+    ),
+  };
+
   // This map acts as a mock password storage.
   final Map<String, String> _mockUserPasswords = {
     'uid_12345': 'testpassword',
-    'uid_67890': 'newpassword',
     'uid_teacher': 'teacherpass', // Teacher user for demonstration
   };
-
-  // Mock list of teachers for the dropdown.
-  final List<UserModel> _mockTeachers = [
-    UserModel(id: 'uid_teacher', name: 'Dr. Idris', username: 'teacher', email: 'teacher@example.com', role: 'teacher'),
-    UserModel(id: 'uid_teacher_2', name: 'Prof. Ada', username: 'prof_ada', email: 'ada@example.com', role: 'teacher'),
-    UserModel(id: 'uid_teacher_3', name: 'Mr. Ben', username: 'mr_ben', email: 'ben@example.com', role: 'teacher'),
-  ];
 
   // This map acts as our in-memory mock database.
   // The key is the user ID.
@@ -53,33 +71,52 @@ class UserService extends ChangeNotifier {
             thumbnailUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=2070&auto=format&fit=crop',
             tags: ['Flutter', 'Advanced'],
             progress: 0.65,
-            lastAccessedSubmoduleId: 'sub1_1_2', // Example: User last viewed 'States of Matter'
-            teacherName: 'Dr. Idris'),
+            lastAccessedSubmoduleId:
+                'sub1_1_2', // Example: User last viewed 'States of Matter'
+            teacherName: 'Dr. Idris',
+            hasGradedQuizzes: true,
+            hasFinalExam: true,
+            hasCertificate: true,
+            certificatePassingGrade: 85),
         CourseModel(
             id: 'c2',
             title: 'State Management with Provider',
-            description: 'Learn the most popular state management solution for Flutter applications.',
+            description:
+                'Learn the most popular state management solution for Flutter applications.',
             thumbnailUrl: 'https://images.unsplash.com/photo-1628258334105-2a0b3d6ef5f3?q=80&w=1974&auto=format&fit=crop',
             tags: ['Flutter', 'State Management'],
             progress: 0.30,
-            lastAccessedSubmoduleId: 'sub2_1_1', // Example: User last viewed 'The Cell'
-            teacherName: 'Prof. Ada'),
+            lastAccessedSubmoduleId:
+                'sub2_1_1', // Example: User last viewed 'The Cell'
+            teacherName: 'Dr. Idris',
+            hasGradedQuizzes: true,
+            hasFinalExam: false,
+            hasCertificate: false),
       ],
       recommendedCourses: [
         CourseModel(
             id: 'cat3',
             title: 'Mastering Newtonian Physics',
-            description: 'From kinematics to dynamics, understand the fundamentals of classical mechanics.',
+            description:
+                'From kinematics to dynamics, understand the fundamentals of classical mechanics.',
             thumbnailUrl: 'https://www.shutterstock.com/image-vector/physics-chalkboard-background-hand-drawn-260nw-1988419205.jpg',
             tags: ['Physics', 'Advanced'],
-            teacherName: 'Mr. Ben'),
+            teacherName: 'Dr. Idris',
+            hasGradedQuizzes: true,
+            hasFinalExam: true,
+            hasCertificate: true,
+            certificatePassingGrade: 70),
         CourseModel(
             id: 'cat4',
             title: 'Calculus for Further Maths',
-            description: 'A deep dive into differentiation and integration for advanced problem-solving.',
+            description:
+                'A deep dive into differentiation and integration for advanced problem-solving.',
             thumbnailUrl: 'https://images.unsplash.com/photo-1509228468518-180dd4864904?q=80&w=2070&auto=format&fit=crop',
             tags: ['Further Maths', 'Mathematics', 'Calculus'],
-            teacherName: 'Prof. Ada'),
+            teacherName: 'Dr. Idris',
+            hasGradedQuizzes: false,
+            hasFinalExam: false,
+            hasCertificate: false),
       ],
       achievements: {'Courses Done': '5', 'Badges Earned': '12', 'Time Spent': '72h'},
       notificationCount: 3,
@@ -121,62 +158,52 @@ class UserService extends ChangeNotifier {
           isSentByUser: false,
         ),
       ],
+      quizAttempts: [],
     ),
     // The new user 'uid_67890' has no data yet.
   };
 
+  /// Loads the user session from local storage when the app starts.
+  Future<void> loadUserFromStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString(_loggedInUserIdKey);
+
+    if (userId != null && _mockUsers.containsKey(userId)) {
+      _currentUser = _mockUsers[userId];
+      _initializeUserDataForLogin(userId);
+      _loadImportantAnnouncement();
+      // No need to call notifyListeners() here, as this happens before the UI is built.
+    }
+  }
+
   Future<bool> login(String emailOrUsername, String password) async {
     // In a real app, you would make a network request to your backend here.
-    // For now, we'll use mock authentication with the specified test user.
     await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
 
-    // NOTE: The `UserModel` constructor will need to be updated to accept a `role` parameter.
-
-    // Existing User
-    if ((emailOrUsername.toLowerCase() == 'testuser' ||
-            emailOrUsername.toLowerCase() == 'testuser@gmail.com') && _mockUserPasswords['uid_12345'] == password) {
-      _currentUser = UserModel(
-        id: 'uid_12345', 
-        name: 'Raphael (Student)',
-        username: 'testuser',
-        email: 'testuser@gmail.com',
-        dob: DateTime(1995, 5, 23),
-        phoneNumber: '+2348012345678',
-        role: 'student',
+    // Find the user by email or username, handling the case where no user is found.
+    UserModel? user;
+    try {
+      user = _mockUsers.values.firstWhere(
+        (u) => u.username.toLowerCase() == emailOrUsername.toLowerCase() || u.email.toLowerCase() == emailOrUsername.toLowerCase(),
       );
-      _initializeUserDataForLogin(_currentUser!.id);
-      announcementShownThisSession = false; // Reset on new login
-      _loadImportantAnnouncement();
-      notifyListeners(); // Notify widgets that the user has logged in.
-      return true;
+    } on StateError {
+      // User not found, so 'user' remains null.
     }
 
-    // New User
-    if (emailOrUsername.toLowerCase() == 'newuser' && _mockUserPasswords['uid_67890'] == password) {
-      _currentUser = UserModel(id: 'uid_67890', name: 'New User', username: 'newuser', email: 'newuser@example.com', role: 'student');
-      _initializeUserDataForLogin(_currentUser!.id);
-      announcementShownThisSession = false; // Reset on new login
-      _loadImportantAnnouncement();
-      notifyListeners();
-      return true;
+    if (user != null) {
+      // Check if the password is correct for the found user.
+      if (_mockUserPasswords[user.id] == password) {
+        _currentUser = user;
+        _initializeUserDataForLogin(_currentUser!.id);
+        announcementShownThisSession = false; // Reset on new login
+        _loadImportantAnnouncement();
+        // Save session to storage
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_loggedInUserIdKey, _currentUser!.id);
+        notifyListeners(); // Notify widgets that the user has logged in.
+        return true;
+      }
     }
-
-    // Teacher User
-    if (emailOrUsername.toLowerCase() == 'teacher@example.com' && _mockUserPasswords['uid_teacher'] == password) {
-      _currentUser = UserModel(
-        id: 'uid_teacher',
-        name: 'Dr. Idris',
-        username: 'teacher',
-        email: 'teacher@example.com',
-        role: 'teacher',
-      );
-      _initializeUserDataForLogin(_currentUser!.id);
-      announcementShownThisSession = false; // Reset on new login
-      _loadImportantAnnouncement();
-      notifyListeners();
-      return true;
-    }
-
     return false;
   }
 
@@ -184,8 +211,8 @@ class UserService extends ChangeNotifier {
     await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
 
     // In a real app, you'd check if the email is already registered in the database.
-    // We'll simulate this by checking against our hardcoded test user.
-    if (email.toLowerCase() == 'testuser@gmail.com') {
+    // Check if the email is already registered in our mock user data.
+    if (_mockUsers.values.any((user) => user.email.toLowerCase() == email.toLowerCase())) {
       return 'This email is already registered.';
     }
 
@@ -195,7 +222,7 @@ class UserService extends ChangeNotifier {
     }
 
     // Create a new user
-    final newId = 'uid_${DateTime.now().millisecondsSinceEpoch}'; // Simple unique ID
+    final newId = 'uid_${DateTime.now().millisecondsSinceEpoch}'; // Simple unique ID for mock purposes
     _currentUser = UserModel(
       id: newId,
       name: name,
@@ -205,14 +232,18 @@ class UserService extends ChangeNotifier {
       phoneNumber: phoneNumber,
       role: 'student', // New users default to 'student' role
     );
+    // Add the new user to our mock collections
+    _mockUsers[newId] = _currentUser!;
     _mockUserPasswords[newId] = password;
 
-    // Add them to the database with empty data. The putIfAbsent call in
     _initializeUserDataForLogin(newId);
-    // _getCurrentUserData will handle creating the UserData object.
     _getCurrentUserData();
     announcementShownThisSession = false; // Reset on new login
     _loadImportantAnnouncement();
+
+    // Save session to storage
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_loggedInUserIdKey, _currentUser!.id);
 
     // Notify listeners that the user is now logged in.
     notifyListeners();
@@ -220,16 +251,21 @@ class UserService extends ChangeNotifier {
     return null; // Indicates success (no error message)
   }
 
-  void logout() {
+  Future<void> logout() async {
     _currentUser = null;
     announcementShownThisSession = false; // Reset on logout
+
+    // Clear session from storage
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_loggedInUserIdKey);
+
     notifyListeners(); // Notify widgets that the user has logged out.
   }
 
   // Helper to ensure user data is initialized with catalog courses on login/signup
   void _initializeUserDataForLogin(String userId) {
     // Ensure the user has a UserData entry with all catalog courses (not enrolled yet)
-    _mockDatabase.putIfAbsent(userId, () => UserData(inProgressCourses: [], recommendedCourses: [], achievements: {}, notificationCount: 0, paymentPlan: 'Free Tier', notifications: [], supportChatHistory: []));
+    _mockDatabase.putIfAbsent(userId, () => UserData(inProgressCourses: [], recommendedCourses: [], achievements: {}, notificationCount: 0, paymentPlan: 'Free Tier', notifications: [], supportChatHistory: [], quizAttempts: []));
   }
 
   void markAnnouncementAsShown() {
@@ -313,8 +349,9 @@ class UserService extends ChangeNotifier {
             supportChatHistory: [
               // Add the initial welcome message for new users as well.
               ChatMessageModel(
-                  id: 'msg1', text: 'Hello! I am the Idris Academy support bot. How can I help you today? You can ask me about navigating the app, finding courses, or checking your progress.', timestamp: DateTime.now(), isSentByUser: false)
-            ]
+                  id: 'msg1', text: 'Hello! I am the Idris Academy support bot. How can I help you today? You can ask me about navigating the app, finding courses, or checking your progress.', timestamp: DateTime.now(), isSentByUser: false),
+            ],
+            quizAttempts: []
             )
         );
   }
@@ -336,6 +373,8 @@ class UserService extends ChangeNotifier {
     notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     return notifications;
   }
+
+  String getPaymentPlan() => _getCurrentUserData()?.paymentPlan ?? 'N/A';
 
   void markAllNotificationsAsRead() {
     final notifications = _getCurrentUserData()?.notifications;
@@ -378,8 +417,8 @@ class UserService extends ChangeNotifier {
     }
   }
 
-  /// Returns the list of available teachers.
-  List<UserModel> getTeachers() => _mockTeachers;
+  /// Returns the list of available teachers from the mock user data.
+  List<UserModel> getTeachers() => _mockUsers.values.where((user) => user.role == 'teacher').toList();
 
   // --- Course Management (Teacher) ---
 
@@ -392,11 +431,38 @@ class UserService extends ChangeNotifier {
       thumbnailUrl: 'https://media.istockphoto.com/id/469951129/photo/group-of-multi-ethnic-students-in-chemistry-lab.jpg?s=612x612&w=0&k=20&c=WbKS_5P0HrNGWXTmNifwjh6Dw0mzj_spghkbJYd9xnY=',
       tags: ['Chemistry', 'Secondary School', 'Science'],
       teacherName: 'Dr. Idris',
+      hasGradedQuizzes: true,
+      hasFinalExam: true,
+      hasCertificate: true,
+      certificatePassingGrade: 75,
       modules: [
-        ModuleModel(id: 'mod1_1', title: 'Module 1: Fundamentals of Chemistry', submodules: [
-          SubmoduleModel(id: 'sub1_1_1', title: 'Introduction to Chemistry', contentType: ContentType.youtubeVideo, contentUrl: 'https://www.youtube.com/watch?v=FSyA4_30O54', transcript: 'This is the transcript for the introduction to chemistry video.'),
-          SubmoduleModel(id: 'sub1_1_2', title: 'States of Matter', contentType: ContentType.image, contentUrl: 'https://placehold.co/1280x720/74C7A3/000000/png?text=States+of+Matter', transcript: 'Solid, Liquid, Gas. These are the three main states of matter.'),
-        ]),
+        ModuleModel(
+            id: 'mod1_1',
+            title: 'Module 1: Fundamentals of Chemistry',
+            submodules: [
+              SubmoduleModel(id: 'sub1_1_1', title: 'Introduction to Chemistry', contentType: ContentType.youtubeVideo, contentUrl: 'https://www.youtube.com/watch?v=FSyA4_30O54', transcript: 'This is the transcript for the introduction to chemistry video.'),
+              SubmoduleModel(id: 'sub1_1_2', title: 'States of Matter', contentType: ContentType.image, contentUrl: 'https://placehold.co/1280x720/74C7A3/000000/png?text=States+of+Matter', transcript: 'Solid, Liquid, Gas. These are the three main states of matter.'),
+            ],
+            quiz: QuizModel(id: 'quiz1_1', title: 'Fundamentals of Chemistry Quiz', questions: [
+              QuestionModel(
+                id: 'q1_1_1',
+                text: 'What are the three main states of matter?',
+                options: [
+                  OptionModel(text: 'Solid, Liquid, Gas', isCorrect: true),
+                  OptionModel(text: 'Solid, Liquid, Plasma'),
+                  OptionModel(text: 'Fire, Water, Air'),
+                ],
+              ),
+              QuestionModel(
+                id: 'q1_1_2',
+                text: 'Which of the following is a chemical property?',
+                options: [
+                  OptionModel(text: 'Color'),
+                  OptionModel(text: 'Density'),
+                  OptionModel(text: 'Flammability', isCorrect: true),
+                ],
+              ),
+            ])),
         ModuleModel(id: 'mod1_2', title: 'Module 2: Chemical Reactions', submodules: [
           SubmoduleModel(id: 'sub1_2_1', title: 'Types of Reactions', contentType: ContentType.youtubeVideo, contentUrl: 'https://www.youtube.com/watch?v=i-r_i-j-E-4', transcript: 'Transcript for types of reactions.'),
           SubmoduleModel(id: 'sub1_2_2', title: 'Balancing Equations', contentType: ContentType.text, contentUrl: '', transcript: 'Balancing chemical equations is a fundamental skill in chemistry. It involves ensuring that the number of atoms of each element is the same on both the reactant and product sides of the equation, adhering to the law of conservation of mass.'),
@@ -409,7 +475,10 @@ class UserService extends ChangeNotifier {
       description: 'Ace your JAMB biology exam with our targeted lessons and quizzes.',
       thumbnailUrl: 'https://www.shutterstock.com/image-photo/science-laboratory-microscope-research-medical-260nw-2499118491.jpg',
       tags: ['Biology', 'JAMB', 'Science'],
-      teacherName: 'Prof. Ada',
+      teacherName: 'Dr. Idris',
+      hasGradedQuizzes: true,
+      hasFinalExam: false,
+      hasCertificate: false,
       modules: [
         ModuleModel(id: 'mod2_1', title: 'Module 1: Cell Biology', submodules: [
           SubmoduleModel(id: 'sub2_1_1', title: 'The Cell: Basic Unit of Life', contentType: ContentType.youtubeVideo, contentUrl: 'https://www.youtube.com/watch?v=8IlzKri08kk', transcript: 'Transcript for cell biology intro.'),
@@ -423,7 +492,11 @@ class UserService extends ChangeNotifier {
       description: 'From kinematics to dynamics, understand the fundamentals of classical mechanics.',
       thumbnailUrl: 'https://www.shutterstock.com/image-vector/physics-chalkboard-background-hand-drawn-260nw-1988419205.jpg',
       tags: ['Physics', 'Advanced', 'Science'],
-      teacherName: 'Mr. Ben',
+      teacherName: 'Dr. Idris',
+      hasGradedQuizzes: true,
+      hasFinalExam: true,
+      hasCertificate: true,
+      certificatePassingGrade: 80,
       modules: [
         ModuleModel(id: 'mod3_1', title: 'Module 1: Kinematics', submodules: [
           SubmoduleModel(id: 'sub3_1_1', title: 'Motion in One Dimension', contentType: ContentType.youtubeVideo, contentUrl: 'https://www.youtube.com/watch?v=ZM8ECpBuQYE', transcript: 'Transcript for kinematics.'),
@@ -436,7 +509,10 @@ class UserService extends ChangeNotifier {
       description: 'A deep dive into differentiation and integration for advanced problem-solving.',
       thumbnailUrl: 'https://images.unsplash.com/photo-1509228468518-180dd4864904?q=80&w=2070&auto=format&fit=crop',
       tags: ['Further Maths', 'Mathematics', 'Calculus', 'Advanced'],
-      teacherName: 'Prof. Ada',
+      teacherName: 'Dr. Idris',
+      hasGradedQuizzes: false,
+      hasFinalExam: false,
+      hasCertificate: false,
       modules: [
         ModuleModel(id: 'mod4_1', title: 'Module 1: Differentiation', submodules: [
           SubmoduleModel(id: 'sub4_1_1', title: 'Basic Differentiation Rules', contentType: ContentType.youtubeVideo, contentUrl: 'https://www.youtube.com/watch?v=5yfh5cf4-0w', transcript: 'Transcript for differentiation.'),
@@ -541,6 +617,60 @@ class UserService extends ChangeNotifier {
         notifyListeners();
       }
     }
+  }
+
+  /// Adds or updates the quiz for a specific module.
+  Future<void> addOrUpdateQuizForModule(String courseId, String moduleId, QuizModel quiz) async {
+    await Future.delayed(const Duration(milliseconds: 300)); // Simulate network save
+    final module = getModuleFromCourse(courseId, moduleId);
+    if (module != null) {
+      final course = getCourseFromCatalog(courseId)!;
+      final moduleIndex = course.modules.indexWhere((m) => m.id == moduleId);
+      course.modules[moduleIndex] = module.copyWith(quiz: quiz);
+      notifyListeners();
+    }
+  }
+
+  /// Deletes the quiz from a specific module.
+  Future<void> deleteQuizFromModule(String courseId, String moduleId) async {
+    await Future.delayed(const Duration(milliseconds: 300)); // Simulate network save
+    final module = getModuleFromCourse(courseId, moduleId);
+    if (module != null && module.quiz != null) {
+      // copyWith doesn't handle setting a value to null well, so we create a new instance.
+      final course = getCourseFromCatalog(courseId)!;
+      final moduleIndex = course.modules.indexWhere((m) => m.id == moduleId);
+      course.modules[moduleIndex] = ModuleModel(id: module.id, title: module.title, submodules: module.submodules, quiz: null);
+      notifyListeners();
+    }
+  }
+
+  // --- Quiz Progress Methods ---
+
+  /// Saves a student's quiz attempt.
+  void saveQuizAttempt(String courseId, String moduleId, int score, int totalQuestions, Map<int, int> selectedAnswers) {
+    final userData = _getCurrentUserData();
+    final module = getModuleFromCourse(courseId, moduleId);
+    if (userData == null || module?.quiz == null) return;
+
+    final newAttempt = QuizAttemptModel(
+      quizId: module!.quiz!.id,
+      timestamp: DateTime.now(),
+      score: score,
+      totalQuestions: totalQuestions,
+      selectedAnswers: selectedAnswers,
+    );
+
+    userData.quizAttempts.add(newAttempt);
+    notifyListeners();
+  }
+
+  /// Retrieves all attempts for a specific quiz, sorted by most recent first.
+  List<QuizAttemptModel> getQuizAttemptsForModule(String courseId, String moduleId) {
+    final userData = _getCurrentUserData();
+    final module = getModuleFromCourse(courseId, moduleId);
+    if (userData == null || module?.quiz == null) return [];
+
+    return userData.quizAttempts.where((attempt) => attempt.quizId == module!.quiz!.id).toList()..sort((a, b) => b.timestamp.compareTo(a.timestamp));
   }
 
   /// Updates the title of a specific submodule.
@@ -884,6 +1014,4 @@ class UserService extends ChangeNotifier {
     }
     return "I'm here to help you navigate the Idris Academy app. You can ask me how to find courses, check your progress, or manage your profile.";
   }
-
-  String getPaymentPlan() => _getCurrentUserData()?.paymentPlan ?? 'N/A';
 }

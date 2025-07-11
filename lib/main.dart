@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use, duplicate_ignore
+
 import 'package:flutter/material.dart';
 import 'package:idris_academy/app_themes.dart';
 import 'package:idris_academy/no_internet_page.dart';
@@ -19,17 +21,25 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:idris_academy/services/theme_service.dart';
 import 'package:provider/provider.dart';
 
-void main() {
+void main() async {
   // Ensure that plugin services are initialized before calling `runApp()`
   // This is required for the native splash screen to work correctly.
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Create service instances.
+  final userService = UserService();
+  final themeService = ThemeService();
+
+  // Initialize services by loading any persisted data.
+  await userService.loadUserFromStorage();
+  await themeService.loadSettings();
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => UserService()),
+        ChangeNotifierProvider.value(value: userService),
         ChangeNotifierProvider(create: (_) => ConnectivityService()),
-        ChangeNotifierProvider(create: (_) => ThemeService()),
+        ChangeNotifierProvider.value(value: themeService),
       ],
       child: const MyApp(),
     ),

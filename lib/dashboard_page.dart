@@ -1,3 +1,5 @@
+// ignore_for_file: unused_import
+
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:idris_academy/certificates_page.dart';
@@ -5,6 +7,7 @@ import 'package:idris_academy/grades_page.dart';
 import 'package:idris_academy/practice_exams_page.dart';
 import 'package:idris_academy/models/course_model.dart';
 import 'package:idris_academy/course_content_page.dart';
+import 'package:idris_academy/course_modules_page.dart';
 import 'package:idris_academy/course_details_page.dart';
 import 'package:idris_academy/models/user_model.dart';
 import 'package:idris_academy/services/user_service.dart';
@@ -236,12 +239,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         onPressed: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(
-                              builder: (context) => CourseContentPage(
-                                courseId: course.id,
-                                initialSubmoduleId: course.lastAccessedSubmoduleId,
-                              ),
-                            ),
+                            MaterialPageRoute(builder: (context) => CourseModulesPage(courseId: course.id)),
                           );
                         },
                         style: ElevatedButton.styleFrom(

@@ -1,10 +1,12 @@
+// ignore_for_file: unused_import
+
 import 'package:flutter/material.dart';
 import 'package:idris_academy/models/course_model.dart';
+import 'package:idris_academy/quiz_page.dart';
 import 'package:idris_academy/services/user_service.dart';
 import 'package:provider/provider.dart';
 import 'package:idris_academy/course_content_page.dart';
 import 'package:idris_academy/course_modules_page.dart';
-
 class CourseDetailsPage extends StatelessWidget {
   final String courseId;
 
@@ -44,26 +46,47 @@ class CourseDetailsPage extends StatelessWidget {
                       elevation: 0,
                       color: Theme.of(context).colorScheme.surface,
                       margin: const EdgeInsets.only(bottom: 8),
-                      child: ExpansionTile(
-                        title: Text(module.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        children: module.submodules
-                            .map((submodule) => ListTile(
+                      child: Consumer<UserService>(
+                        builder: (context, userService, child) {
+                          final isEnrolled = userService.isEnrolled(course.id);
+                          return ExpansionTile(title: Text(module.title, style: const TextStyle(fontWeight: FontWeight.bold)), children: [
+                            ...module.submodules.map((submodule) => ListTile(
                                   leading: const Icon(Icons.play_circle_outline, size: 20),
                                   title: Text(submodule.title, style: Theme.of(context).textTheme.bodyMedium),
                                   dense: true,
-                                ))
-                            .toList(),
+                                )),
+                            if (module.quiz != null)
+                              ListTile(
+                                leading: Icon(Icons.quiz_outlined, size: 20, color: Theme.of(context).colorScheme.primary),
+                                title: Text(module.quiz!.title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
+                                dense: true,
+                                onTap: () {
+                                  if (isEnrolled) {
+                                    Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => QuizPage(courseId: course.id, moduleId: module.id),
+                                        ));
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Please enroll in the course to take the quiz.')),
+                                    );
+                                  }
+                                },
+                              ),
+                          ]);
+                        },
                       ),
                     )),
                 const SizedBox(height: 24),
                 _buildSectionTitle(context, 'Instructor'),
-                _buildInstructorInfo(context), // Placeholder
+                _buildInstructorInfo(context, course),
                 const SizedBox(height: 24),
                 _buildSectionTitle(context, 'Assessment'),
-                const Text('This course includes graded quizzes and a final exam to test your knowledge.'),
+                _buildAssessmentInfo(context, course),
                 const SizedBox(height: 24),
                 _buildSectionTitle(context, 'Certificate'),
-                const Text('Upon successful completion (80% or higher), you will receive a verifiable certificate from Idris Academy.'),
+                _buildCertificateInfo(context, course),
               ],
             ),
           ),
@@ -136,14 +159,61 @@ class CourseDetailsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildInstructorInfo(BuildContext context) {
-    // Placeholder for instructor info
-    return const ListTile(
-      leading: CircleAvatar(
+  Widget _buildInstructorInfo(BuildContext context, CourseModel course) {
+    // Now displays the dynamic teacher name from the course model.
+    return ListTile(
+      leading: const CircleAvatar(
         child: Icon(Icons.person),
       ),
-      title: Text('Dr. Idris'),
-      subtitle: Text('Lead Instructor, PhD in Chemistry'),
+      title: Text(course.teacherName),
+      subtitle: const Text('Lead Instructor'),
+      contentPadding: EdgeInsets.zero,
+    );
+  }
+
+  /// Builds a list of assessment features based on the course data.
+  Widget _buildAssessmentInfo(BuildContext context, CourseModel course) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    List<Widget> assessmentFeatures = [];
+
+    if (course.hasGradedQuizzes) {
+      assessmentFeatures.add(
+        ListTile(leading: Icon(Icons.check_circle_outline, color: colorScheme.primary), title: const Text('This course has graded quizzes'), contentPadding: EdgeInsets.zero, dense: true),
+      );
+    }
+
+    if (course.hasFinalExam) {
+      assessmentFeatures.add(
+        ListTile(leading: Icon(Icons.check_circle_outline, color: colorScheme.primary), title: const Text('This course has a final exam.'), contentPadding: EdgeInsets.zero, dense: true),
+      );
+    }
+
+    if (assessmentFeatures.isEmpty) {
+      return Text('This course does not include graded assessments.', style: textTheme.bodyMedium);
+    }
+
+    return Column(children: assessmentFeatures);
+  }
+
+  /// Builds the certificate information widget based on the course data.
+  Widget _buildCertificateInfo(BuildContext context, CourseModel course) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    if (course.hasCertificate) {
+      return ListTile(
+        leading: Icon(Icons.workspace_premium_outlined, color: colorScheme.primary),
+        title: const Text('Certificate of Completion'),
+        subtitle: Text('Requires a score of ${course.certificatePassingGrade}% or higher on all assessments.', style: textTheme.bodyMedium),
+        contentPadding: EdgeInsets.zero,
+      );
+    }
+    return ListTile(
+      leading: Icon(Icons.workspace_premium_outlined, color: Colors.grey.shade600),
+      title: const Text('No Certificate Offered'),
+      subtitle: Text('This course does not offer a certificate upon completion.', style: textTheme.bodyMedium),
       contentPadding: EdgeInsets.zero,
     );
   }
@@ -160,32 +230,16 @@ class CourseDetailsPage extends StatelessWidget {
           final userCourse = userService.getUserCourse(course.id);
           final hasStarted = userCourse?.lastAccessedSubmoduleId != null;
 
-          if (hasStarted) {
-            buttonText = 'Continue Learning';
-            onPressedAction = () {
-              // Jump directly to the last accessed lesson.
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CourseContentPage(
-                    courseId: course.id,
-                    initialSubmoduleId: userCourse!.lastAccessedSubmoduleId,
-                  ),
-                ),
-              );
-            };
-          } else {
-            buttonText = 'Start Learning';
-            onPressedAction = () {
-              // Go to the modules page to start from the beginning.
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CourseModulesPage(courseId: course.id),
-                ),
-              );
-            };
-          }
+          buttonText = hasStarted ? 'Continue Learning' : 'Start Learning';
+          onPressedAction = () {
+            // Always go to the modules page for an overview.
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CourseModulesPage(courseId: course.id),
+              ),
+            );
+          };
         } else {
           buttonText = 'Enroll Now';
           onPressedAction = () {

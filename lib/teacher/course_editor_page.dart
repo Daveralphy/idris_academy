@@ -1,8 +1,12 @@
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:idris_academy/teacher/quiz_editor_page.dart';
 import 'package:idris_academy/models/course_model.dart';
 import 'package:idris_academy/models/module_model.dart';
+import 'package:flutter/services.dart';
 import 'package:idris_academy/models/submodule_model.dart';
 import 'package:idris_academy/models/user_model.dart';
 import 'package:idris_academy/services/user_service.dart';
@@ -26,6 +30,12 @@ class _CourseEditorPageState extends State<CourseEditorPage> {
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   late TextEditingController _tagsController;
+  // State variables for assessment fields
+  bool _hasGradedQuizzes = false;
+  bool _hasFinalExam = false;
+  // State variables for the new certification fields
+  bool _hasCertificate = false;
+  late TextEditingController _passingGradeController;
   String? _selectedTeacherId;
   File? _thumbnailImage;
   List<UserModel> _teachers = [];
@@ -43,6 +53,14 @@ class _CourseEditorPageState extends State<CourseEditorPage> {
     _descriptionController = TextEditingController(text: course.description);
     _tagsController = TextEditingController(text: course.tags.join(', '));
 
+    // Initialize assessment state variables from the course data.
+    _hasGradedQuizzes = course.hasGradedQuizzes;
+    _hasFinalExam = course.hasFinalExam;
+
+    // Initialize the new state variables from the course data.
+    _hasCertificate = course.hasCertificate;
+    _passingGradeController = TextEditingController(text: course.certificatePassingGrade?.toString() ?? '');
+
     _teachers = userService.getTeachers();
     // Find the teacher ID that matches the current course's teacher name.
     try {
@@ -58,6 +76,7 @@ class _CourseEditorPageState extends State<CourseEditorPage> {
     _titleController.dispose();
     _descriptionController.dispose();
     _tagsController.dispose();
+    _passingGradeController.dispose();
     super.dispose();
   }
 
@@ -149,12 +168,26 @@ class _CourseEditorPageState extends State<CourseEditorPage> {
 
       final selectedTeacher = _teachers.firstWhere((t) => t.id == _selectedTeacherId);
 
-      final updatedCourse = originalCourse.copyWith(
+      // The standard `copyWith` has limitations with nullable fields that need to be cleared.
+      // Direct instantiation is more explicit and avoids ambiguity.
+      final updatedCourse = CourseModel(
+        // Keep original non-editable fields from the student's perspective
+        id: originalCourse.id,
+        modules: originalCourse.modules,
+        progress: originalCourse.progress,
+        lastAccessedSubmoduleId: originalCourse.lastAccessedSubmoduleId,
+        isEnrolled: originalCourse.isEnrolled,
+
+        // Update with form values
         title: _titleController.text,
         description: _descriptionController.text,
         thumbnailUrl: newThumbnailUrl,
         teacherName: selectedTeacher.name,
         tags: _tagsController.text.split(',').map((e) => e.trim()).where((s) => s.isNotEmpty).toList(),
+        hasGradedQuizzes: _hasGradedQuizzes,
+        hasFinalExam: _hasFinalExam,
+        hasCertificate: _hasCertificate,
+        certificatePassingGrade: _hasCertificate ? int.tryParse(_passingGradeController.text) : null,
       );
 
       final userService = Provider.of<UserService>(context, listen: false);
@@ -413,6 +446,82 @@ class _CourseEditorPageState extends State<CourseEditorPage> {
                         decoration: const InputDecoration(labelText: 'Tags (comma-separated)', border: OutlineInputBorder()),
                         validator: (value) => value == null || value.isEmpty ? 'Please enter at least one tag.' : null,
                       ),
+                      const Divider(height: 32, thickness: 1),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Text(
+                          'Assessment',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ),
+                      SwitchListTile(
+                        title: const Text('Has Graded Quizzes?'),
+                        subtitle: const Text('Include graded quizzes throughout the course modules.'),
+                        value: _hasGradedQuizzes,
+                        onChanged: (bool value) {
+                          setState(() => _hasGradedQuizzes = value);
+                        },
+                      ),
+                      SwitchListTile(
+                        title: const Text('Has Final Exam?'),
+                        subtitle: const Text('Include a final exam at the end of the course.'),
+                        value: _hasFinalExam,
+                        onChanged: (bool value) {
+                          setState(() => _hasFinalExam = value);
+                        },
+                      ),
+                      const Divider(height: 32, thickness: 1),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Text(
+                          'Certification',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ),
+                      SwitchListTile(
+                        title: const Text('Offers a Certificate?'),
+                        subtitle: const Text('Students will receive a certificate upon completion.'),
+                        value: _hasCertificate,
+                        onChanged: (bool value) {
+                          setState(() {
+                            _hasCertificate = value;
+                            // Clear the grade if certificates are disabled to avoid saving a stray value
+                            if (!_hasCertificate) {
+                              _passingGradeController.clear();
+                            }
+                          });
+                        },
+                      ),
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                        child: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 300),
+                          opacity: _hasCertificate ? 1.0 : 0.0,
+                          child: _hasCertificate
+                              ? Padding(
+                                  padding: const EdgeInsets.only(top: 16.0),
+                                  child: TextFormField(
+                                    controller: _passingGradeController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Passing Grade (%)',
+                                      hintText: 'e.g., 75',
+                                      border: OutlineInputBorder(),
+                                      helperText: 'The minimum score required to earn the certificate.',
+                                    ),
+                                    keyboardType: TextInputType.number,
+                                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) return 'Please enter a passing grade.';
+                                      final grade = int.tryParse(value);
+                                      if (grade == null || grade < 0 || grade > 100) return 'Please enter a valid percentage (0-100).';
+                                      return null;
+                                    },
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -438,7 +547,10 @@ class _CourseEditorPageState extends State<CourseEditorPage> {
                     return ListTile(
                       key: ValueKey(module.id),
                       title: Text(module.title),
-                      subtitle: Text('${module.submodules.length} submodules'),
+                      subtitle: Text([
+                        '${module.submodules.length} submodules',
+                        if (module.quiz != null) 'Quiz'
+                      ].join(' • ')),
                       onTap: () {
                         // Navigate to the page to manage the module's submodules
                         Navigator.push(context, MaterialPageRoute(builder: (_) => ModuleEditorPage(courseId: course.id, moduleId: module.id)));
@@ -585,9 +697,11 @@ class _ModuleEditorPageState extends State<ModuleEditorPage> {
   Widget build(BuildContext context) {
     return Consumer<UserService>(
       builder: (context, userService, child) {
+        // We need both the course and the module to check quiz settings
+        final course = userService.getCourseFromCatalog(widget.courseId);
         final module = userService.getModuleFromCourse(widget.courseId, widget.moduleId);
 
-        if (module == null) {
+        if (course == null || module == null) {
           return Scaffold(
             appBar: AppBar(title: const Text('Error')),
             body: const Center(child: Text('Module not found.')),
@@ -598,67 +712,89 @@ class _ModuleEditorPageState extends State<ModuleEditorPage> {
           appBar: AppBar(
             title: Text('Edit: ${module.title}'),
           ),
-          body: module.submodules.isEmpty
-              ? const Center(child: Text('No submodules yet. Add one!'))
-              : ReorderableListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  itemCount: module.submodules.length,
-                  itemBuilder: (context, index) {
-                    final submodule = module.submodules[index];
-                    // Each item in a ReorderableListView needs a unique key.
-                    return ListTile(
-                      key: ValueKey(submodule.id),
-                      leading: const Icon(Icons.article_outlined),
-                      title: Text(submodule.title),
-                      onTap: () {
-                        // Navigate to the full editor to edit content
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => SubmoduleEditorPage(courseId: widget.courseId, moduleId: widget.moduleId, submoduleId: submodule.id,),
-                          ),
-                        );
-                      },
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () => _deleteSubmodule(module, submodule),
-                            tooltip: 'Delete Submodule',
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined),
-                            onPressed: () => _showEditSubmoduleTitleDialog(context, submodule),
-                            tooltip: 'Edit Submodule Title',
-                          ),
-                          ReorderableDragStartListener(
-                            index: index,
-                            child: const Icon(Icons.drag_handle),
-                          ),
-                        ],
+          body: ListView(
+            children: [
+              if (module.submodules.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 48.0),
+                  child: Center(child: Text('No submodules yet. Add one!')),
+                )
+              else
+                ReorderableListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    itemCount: module.submodules.length,
+                    itemBuilder: (context, index) {
+                      final submodule = module.submodules[index];
+                      // Each item in a ReorderableListView needs a unique key.
+                      return ListTile(
+                        key: ValueKey(submodule.id),
+                        leading: const Icon(Icons.article_outlined),
+                        title: Text(submodule.title),
+                        onTap: () {
+                          // Navigate to the full editor to edit content
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => SubmoduleEditorPage(
+                                courseId: widget.courseId,
+                                moduleId: widget.moduleId,
+                                submoduleId: submodule.id,
+                              ),
+                            ),
+                          );
+                        },
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () => _deleteSubmodule(module, submodule),
+                              tooltip: 'Delete Submodule',
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined),
+                              onPressed: () => _showEditSubmoduleTitleDialog(context, submodule),
+                              tooltip: 'Edit Submodule Title',
+                            ),
+                            ReorderableDragStartListener(
+                              index: index,
+                              child: const Icon(Icons.drag_handle),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    onReorder: (int oldIndex, int newIndex) {
+                      if (oldIndex < newIndex) newIndex -= 1;
+                      final List<SubmoduleModel> reorderedSubmodules = List.from(module.submodules);
+                      final SubmoduleModel item = reorderedSubmodules.removeAt(oldIndex);
+                      reorderedSubmodules.insert(newIndex, item);
+                      Provider.of<UserService>(context, listen: false).updateSubmoduleOrder(widget.courseId, widget.moduleId, reorderedSubmodules);
+                    }),
+              if (course.hasGradedQuizzes) ...[
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.quiz_outlined),
+                  title: Text(module.quiz == null ? 'Add Quiz' : 'Edit Quiz'),
+                  subtitle: Text(module.quiz == null ? 'Add a quiz to this module.' : module.quiz!.title),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => QuizEditorPage(
+                          courseId: widget.courseId,
+                          moduleId: widget.moduleId,
+                        ),
                       ),
                     );
                   },
-                  onReorder: (int oldIndex, int newIndex) {
-                    // This logic handles the index change when an item is moved.
-                    if (oldIndex < newIndex) {
-                      newIndex -= 1;
-                    }
-                    // Create a mutable copy of the list.
-                    final List<SubmoduleModel> reorderedSubmodules =
-                        List.from(module.submodules);
-                    // Remove the item from its old position and insert it into the new one.
-                    final SubmoduleModel item =
-                        reorderedSubmodules.removeAt(oldIndex);
-                    reorderedSubmodules.insert(newIndex, item);
-
-                    // Call the service to persist the new order.
-                    Provider.of<UserService>(context, listen: false)
-                        .updateSubmoduleOrder(widget.courseId, widget.moduleId, reorderedSubmodules);
-                  },
                 ),
+              ],
+            ],
+          ),
           floatingActionButton: FloatingActionButton(
             onPressed: () {
               _navigateToAddSubmodule();
@@ -671,4 +807,3 @@ class _ModuleEditorPageState extends State<ModuleEditorPage> {
     );
   }
 }
-

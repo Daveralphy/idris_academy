@@ -10,6 +10,7 @@ import 'package:idris_academy/models/submodule_model.dart';
 import 'package:idris_academy/services/theme_service.dart';
 import 'package:idris_academy/services/user_service.dart';
 import 'package:provider/provider.dart';
+import 'package:idris_academy/quiz_page.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:video_player/video_player.dart';
 
@@ -281,9 +282,6 @@ class _CourseContentPageState extends State<CourseContentPage> with SingleTicker
                 ],
                 // Display the current submodule title prominently.
                 Text(_currentSubmodule!.title, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                LinearProgressIndicator(value: course.progress, minHeight: 6, backgroundColor: Colors.grey.shade300),
-                Text('${(course.progress * 100).toInt()}% Complete', style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(height: 24),
                 // The content player now handles all content types.
                 _buildContentPlayer(),
@@ -298,8 +296,8 @@ class _CourseContentPageState extends State<CourseContentPage> with SingleTicker
 
                 // For text lessons, show a dynamic completion/navigation button.
                 // For other types, show standard navigation.
-                if (isText) _buildTextLessonActions(context, course, _currentSubmodule!, userService),
-                if (!isText) _buildNavigationControls(context, course, _currentSubmodule!, userService),
+                if (isText) _buildTextLessonActions(context, course, _currentSubmodule!, parentModule, userService),
+                if (!isText) _buildNavigationControls(context, course, _currentSubmodule!, parentModule, userService),
               ],
             ),
           ),
@@ -487,11 +485,10 @@ class _CourseContentPageState extends State<CourseContentPage> with SingleTicker
     );
   }
 
-  Widget _buildTextLessonActions(BuildContext context, CourseModel course, SubmoduleModel submodule, UserService userService) {
+  Widget _buildTextLessonActions(BuildContext context, CourseModel course, SubmoduleModel submodule, ModuleModel? parentModule, UserService userService) {
     if (submodule.contentType != ContentType.text) return const SizedBox.shrink();
 
     final prevSubmodule = userService.getPreviousSubmodule(course.id, submodule.id);
-    final nextSubmodule = userService.getNextSubmodule(course.id, submodule.id);
 
     VoidCallback? onNextPressed;
     Widget nextButtonChild;
@@ -502,32 +499,41 @@ class _CourseContentPageState extends State<CourseContentPage> with SingleTicker
       };
       nextButtonChild = const Text('Mark as Complete');
     } else {
-      if (nextSubmodule != null) {
-        onNextPressed = () => _selectSubmodule(nextSubmodule);
+      final isLastInModule = parentModule?.submodules.last.id == submodule.id;
+      final hasQuiz = parentModule?.quiz != null;
+
+      if (isLastInModule && hasQuiz) {
+        onNextPressed = () {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => QuizPage(courseId: course.id, moduleId: parentModule!.id)),
+          );
+        };
         nextButtonChild = const Row(
           mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Next Lesson'),
-            SizedBox(width: 8),
-            Icon(Icons.arrow_forward, size: 18),
-          ],
+          children: [Text('Go to Quiz'), SizedBox(width: 8), Icon(Icons.quiz_outlined, size: 18)],
         );
       } else {
-        // This is the last lesson. Only show "Course Complete" if progress is 100%.
-        if (course.progress >= 1.0) {
-          onNextPressed = null; // Disable the button
-          nextButtonChild = const Text('Course Complete');
-        } else {
-          // Last lesson is done, but course not 100% complete. Show disabled "Next" button.
-          onNextPressed = null;
+        final nextSubmodule = userService.getNextSubmodule(course.id, submodule.id);
+        if (nextSubmodule != null) {
+          onNextPressed = () => _selectSubmodule(nextSubmodule);
           nextButtonChild = const Row(
             mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Next Lesson'),
-              SizedBox(width: 8),
-              Icon(Icons.arrow_forward, size: 18),
-            ],
+            children: [Text('Next Lesson'), SizedBox(width: 8), Icon(Icons.arrow_forward, size: 18)],
           );
+        } else {
+          // This is the last lesson of the entire course.
+          if (course.progress >= 1.0) {
+            onNextPressed = null; // Disable the button
+            nextButtonChild = const Text('Course Complete');
+          } else {
+            // Last lesson is done, but course not 100% complete. Show disabled "Next" button.
+            onNextPressed = null;
+            nextButtonChild = const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [Text('Next Lesson'), SizedBox(width: 8), Icon(Icons.arrow_forward, size: 18)],
+            );
+          }
         }
       }
     }
@@ -603,9 +609,37 @@ class _CourseContentPageState extends State<CourseContentPage> with SingleTicker
     );
   }
 
-  Widget _buildNavigationControls(BuildContext context, CourseModel course, SubmoduleModel submodule, UserService userService) {
+  Widget _buildNavigationControls(BuildContext context, CourseModel course, SubmoduleModel submodule, ModuleModel? parentModule, UserService userService) {
     final prevSubmodule = userService.getPreviousSubmodule(course.id, submodule.id);
-    final nextSubmodule = userService.getNextSubmodule(course.id, submodule.id);
+
+    VoidCallback? onNextPressed;
+    Widget nextButtonChild;
+
+    final isLastInModule = parentModule?.submodules.last.id == submodule.id;
+    final hasQuiz = parentModule?.quiz != null;
+
+    if (isLastInModule && hasQuiz) {
+      // If it's the last submodule and there's a quiz, the next button goes to the quiz.
+      onNextPressed = () {
+        // Using pushReplacement to prevent user from going back to the last lesson from the quiz.
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => QuizPage(courseId: course.id, moduleId: parentModule!.id)),
+        );
+      };
+      nextButtonChild = const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [Text('Go to Quiz'), SizedBox(width: 8), Icon(Icons.quiz_outlined, size: 18)],
+      );
+    } else {
+      // Otherwise, it goes to the next lesson.
+      final nextSubmodule = userService.getNextSubmodule(course.id, submodule.id);
+      onNextPressed = nextSubmodule != null ? () => _selectSubmodule(nextSubmodule) : null;
+      nextButtonChild = const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [Text('Next'), SizedBox(width: 8), Icon(Icons.arrow_forward)],
+      );
+    }
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -616,15 +650,8 @@ class _CourseContentPageState extends State<CourseContentPage> with SingleTicker
           label: const Text('Prev'),
         ),
         ElevatedButton(
-          onPressed: nextSubmodule != null ? () => _selectSubmodule(nextSubmodule) : null,
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Next'),
-              SizedBox(width: 8),
-              Icon(Icons.arrow_forward),
-            ],
-          ),
+          onPressed: onNextPressed,
+          child: nextButtonChild,
         ),
       ],
     );
