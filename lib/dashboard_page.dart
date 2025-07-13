@@ -468,7 +468,7 @@ class _DashboardPageState extends State<DashboardPage> {
       trailing: const Icon(Icons.arrow_forward_ios),
       onTap: () async {
         // Navigate to the FAQs page and wait for a potential result.
-        final result = await Navigator.push(
+        await Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const FaqsPage()),
         );

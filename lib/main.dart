@@ -330,7 +330,7 @@ class _MyHomePageState extends State<MyHomePage> {
               title: const Text('FAQs'),
               onTap: () async {
                 Navigator.pop(context); // Close the drawer
-                final result = await Navigator.push(
+                await Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const FaqsPage()),
                 );
