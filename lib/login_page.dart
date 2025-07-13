@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:idris_academy/services/user_service.dart';
 import 'package:idris_academy/signup_page.dart';
 import 'package:provider/provider.dart';
@@ -48,6 +50,22 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  // Placeholder for Google Sign-In logic
+  Future<void> _handleGoogleSignIn() async {
+    // TODO: Implement full Google Sign-In logic using the 'google_sign_in' package.
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Google Sign-In is not yet implemented.')),
+    );
+  }
+
+  // Placeholder for Apple Sign-In logic
+  Future<void> _handleAppleSignIn() async {
+    // TODO: Implement full Apple Sign-In logic using the 'sign_in_with_apple' package.
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Apple Sign-In is not yet implemented.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -59,10 +77,16 @@ class _LoginPageState extends State<LoginPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.school, size: 80),
+                Text(
+                  'Welcome Back',
+                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 8),
-                Text('Idris Academy', style: Theme.of(context).textTheme.headlineLarge),
-                const SizedBox(height: 40),
+                Text(
+                  'Login to continue your learning journey.',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 32),
                 TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(labelText: 'Username or Email'),
@@ -89,6 +113,16 @@ class _LoginPageState extends State<LoginPage> {
                         style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
                         child: const Text('Login'),
                       ),
+                const SizedBox(height: 24),
+                _buildSocialDivider(),
+                const SizedBox(height: 24),
+                // Google Sign-In Button
+                _buildGoogleButton(),
+                // Apple Sign-In Button (only shown on Apple platforms)
+                if (Platform.isIOS || Platform.isMacOS) ...[
+                  const SizedBox(height: 16),
+                  _buildAppleButton(),
+                ],
                 const SizedBox(height: 16),
                 TextButton(
                   onPressed: () {
@@ -100,6 +134,49 @@ class _LoginPageState extends State<LoginPage> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSocialDivider() {
+    return const Row(
+      children: [
+        Expanded(child: Divider()),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Text('OR', style: TextStyle(color: Colors.grey)),
+        ),
+        Expanded(child: Divider()),
+      ],
+    );
+  }
+
+  Widget _buildGoogleButton() {
+    return OutlinedButton.icon(
+      onPressed: _handleGoogleSignIn,
+      icon: const FaIcon(FontAwesomeIcons.google, size: 20.0),
+      label: const Text('Continue with Google'),
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(double.infinity, 50),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppleButton() {
+    return ElevatedButton.icon(
+      onPressed: _handleAppleSignIn,
+      icon: const Icon(Icons.apple, color: Colors.white),
+      label: const Text('Continue with Apple'),
+      style: ElevatedButton.styleFrom(
+        minimumSize: const Size(double.infinity, 50),
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
       ),
     );

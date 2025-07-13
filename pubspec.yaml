@@ -28,17 +28,22 @@ dependencies:
   connectivity_plus: ^6.0.3
   provider: ^6.1.2
 
+  # Social Sign-In
+  google_sign_in: ^6.2.1
+  sign_in_with_apple: ^6.1.0
+
   # UI & Utility Packages
   intl_phone_field: ^3.2.0
   permission_handler: ^11.3.1
+  font_awesome_flutter: ^10.7.0 # For social login icons
   url_launcher: ^6.3.0
 
   # Media Players
   video_player: ^2.10.0
   youtube_player_flutter: ^9.0.1
-  intl: ^0.20.2
-  image_picker: ^1.1.2 # Consolidating duplicate dependency
-  shared_preferences: ^2.5.3
+  intl: 0.20.2 # Corrected to a valid version compatible with other packages
+  image_picker: ^1.1.2
+  shared_preferences: ^2.2.3 # Corrected to the latest valid version
 
 dev_dependencies:
   flutter_test:
@@ -55,18 +60,26 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # To add assets to your application, add an assets section, like this:
+  assets:
+    - assets/icon/idris_academy_logo.png
+
 flutter_native_splash:
   # This color will be used as the background for your splash screen.
   color: "#FFFFFF" # White
-  # The image to display in the center of the splash screen.
-  image: assets/icon/icon.png
+  # For the native splash, we must use a simple, centered icon to comply with Android 12+.
+  image: assets/icon/idris_academy_logo.png
+  # These settings ensure proper placement on older Android and iOS.
+  android_gravity: center
+  ios_content_mode: scaleAspectFit
 
   # The android_12 section is required for newer Android versions.
   android_12:
-    image: assets/icon/icon.png
+    # Android 12+ also requires a simple centered icon.
+    image: assets/icon/idris_academy_logo.png
     color: "#FFFFFF"
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/icon/icon.png"
+  image_path: "assets/icon/idris_academy_logo.png" # Keep the original logo for the app icon
   min_sdk_android: 21

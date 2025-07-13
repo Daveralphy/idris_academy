@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:idris_academy/app_themes.dart';
+import 'package:idris_academy/splash_screen_page.dart';
 import 'package:idris_academy/no_internet_page.dart';
 import 'package:idris_academy/dashboard_page.dart';
 import 'package:idris_academy/faqs_page.dart';
@@ -70,8 +71,8 @@ class MyApp extends StatelessWidget {
             Locale('en'), // English
             // Add other locales your app supports here
           ],
-          // The app now starts directly at the AppRoot after the native splash.
-          home: const AppRoot(),
+          // The app now starts with our custom Flutter splash screen, which will then navigate to the AppRoot.
+          home: const SplashScreenPage(),
         );
       },
     );
